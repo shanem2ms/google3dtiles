@@ -1,0 +1,10 @@
+build/
+.vs/
+.vscode/
+.DS_Store
+out/
+mom_ported/
+install/
+vcpkg/
+obj
+bin
