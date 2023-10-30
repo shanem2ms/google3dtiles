@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Policy;
@@ -7,11 +8,13 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Media.Animation;
+using System.IO;
 using glTFLoader;
+using Vortice.DXCore;
 
 namespace googletiles
 {
-    class GoogleTile
+    public class GoogleTile
     {
         public class Content
         {
@@ -39,46 +42,6 @@ namespace googletiles
             public Node[] children { get; set; }
             public Content content { get; set; }
 
-            async Task<bool> DownloadContent(string sessionkey)
-            {
-                if (content == null)
-                    return true;
-                if (content.uri.Contains(".json"))
-                {
-                    GoogleTile tile = await GoogleTile.CreateFromUri(content.UriNoQuery(), sessionkey);
-                    await tile.DownloadChildren(sessionkey);
-                }
-                else if (content.uri.Contains(".glb"))
-                {
-                    HttpClient httpClient = new HttpClient();
-                    string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
-                    string url = content.UriNoQuery();
-                    var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
-                    var stream = await response.Content.ReadAsStreamAsync();
-                    var gltfModel = glTFLoader.Interface.LoadModel(stream);
-                    /*
-                    byte[]buf = new byte[stream.Length];
-                    await stream.ReadAsync(buf, 0, buf.Length);
-                    string filename = content.UriNoQuery();
-                    filename = System.IO.Path.GetFileName(filename);
-                    await System.IO.File.WriteAllBytesAsync(filename, buf);*/
-                    return true;
-                }
-                return true;
-            }
-            public async Task<bool> DownloadChildren(string sessionkey)
-            {
-                await DownloadContent(sessionkey);
-                if (children == null)
-                    return true;
-                foreach (Node n in children)
-                {
-                    await n.DownloadChildren(sessionkey);
-                }
-                return true;
-            }
-
-
             public string GetSession()
             {
                 if (content != null)
@@ -102,25 +65,40 @@ namespace googletiles
                 }
                 return string.Empty;
             }
+
+            public async Task<Stream> GetContentStream(string sessionkey)
+            {
+                HttpClient httpClient = new HttpClient();
+                string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
+                string url = content.UriNoQuery();
+                var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
+                return await response.Content.ReadAsStreamAsync();
+            }
         }
         public Node root { get; set; }
 
         static string site = "https://tile.googleapis.com";
         static string key = "key=AIzaSyB-uBxCvbThmf-lSIqbdMvE1wPJ8fVNbjs";
-        public Task<bool> DownloadChildren(string sessionkey)
-        {
-            return root.DownloadChildren(sessionkey);
-        }
         public string GetSession()
         {
             return root.GetSession();
         }
+
+        static Dictionary<string, int> jsonIdx = new Dictionary<string, int>();
+        static int nextIdx = 0;
         public static async Task<GoogleTile> CreateFromUri(string url, string sessionkey)
         {
+            int jsonidx = -1;
+            if (!jsonIdx.TryGetValue(url, out jsonidx))
+            {
+                jsonidx = nextIdx++;
+                jsonIdx.Add(url, jsonidx);
+            }
             HttpClient httpClient = new HttpClient();
             string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
             var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
             string responseJson = await response.Content.ReadAsStringAsync();
+            File.WriteAllText(Path.GetFileName(url), responseJson);
             GoogleTile tile = JsonSerializer.Deserialize<GoogleTile>(responseJson);
             return tile;
         }

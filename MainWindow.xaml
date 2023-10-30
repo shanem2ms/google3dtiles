@@ -7,6 +7,24 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="200" />
+        </Grid.ColumnDefinitions>
         <local:VeldridComponent />
+        <Grid Grid.Column="1" >
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TreeView Background="AliceBlue" ItemsSource="{Binding Tiles}">
+                <TreeView.Resources>
+                    <HierarchicalDataTemplate DataType="{x:Type local:Tile}" ItemsSource="{Binding ChildTiles}">
+                        <TextBlock Text="{Binding Name}" />
+                    </HierarchicalDataTemplate>
+                </TreeView.Resources>
+            </TreeView>
+            <TextBlock Grid.Row="1" Text="Hello" />
+        </Grid>
     </Grid>
 </Window>
