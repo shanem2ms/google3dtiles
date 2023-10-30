@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Media.Animation;
+using glTFLoader;
 
 namespace googletiles
 {
@@ -51,15 +52,16 @@ namespace googletiles
                 {
                     HttpClient httpClient = new HttpClient();
                     string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
-                    string url = //@"/v1/3dtiles/datasets/CgA/files/UlRPVEYubm9kZWRhdGEucGxhbmV0b2lkPWVhcnRoLG5vZGVfZGF0YV9lcG9jaD05NDYscGF0aD0yMTYwNCxjYWNoZV92ZXJzaW9uPTYsaW1hZ2VyeV9lcG9jaD05NjY.glb";
-                    content.UriNoQuery();
+                    string url = content.UriNoQuery();
                     var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
                     var stream = await response.Content.ReadAsStreamAsync();
+                    var gltfModel = glTFLoader.Interface.LoadModel(stream);
+                    /*
                     byte[]buf = new byte[stream.Length];
                     await stream.ReadAsync(buf, 0, buf.Length);
                     string filename = content.UriNoQuery();
                     filename = System.IO.Path.GetFileName(filename);
-                    await System.IO.File.WriteAllBytesAsync(filename, buf);
+                    await System.IO.File.WriteAllBytesAsync(filename, buf);*/
                     return true;
                 }
                 return true;

@@ -7,4 +7,9 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="glTF2Loader" Version="1.0.0" />
+    <PackageReference Include="Veldrid" Version="4.9.0" />
+  </ItemGroup>
+
 </Project>
