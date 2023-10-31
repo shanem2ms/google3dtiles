@@ -26,26 +26,48 @@ namespace googletiles
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
 
-        public List<Tile> Tiles { get; } 
+        public List<Tile> Tiles { get; private set; } = null;
+
+        Tile root;
         public MainWindow()
         {
-            Tiles = new List<Tile>();
             this.DataContext = this;
             InitializeComponent();
             DoDownload();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+        public string sessionkey;
 
         async Task<bool> DoDownload()
         {
             GoogleTile rootTile = await
                 GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty);
-            string sessionkey = rootTile.GetSession();
-            Tile root = new Tile(rootTile.root);
-            Tiles.Add(root);
+            sessionkey = rootTile.GetSession();
+            root = new Tile(rootTile.root, 0);
+            //Tiles.Add(root);
             await root.DownloadChildren(sessionkey);
+            RefreshTiles();
+            return true;
+        }
+
+        void RefreshTiles()
+        {
+            Tiles = new List<Tile>();
+            root.GetExpandedList(Tiles);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Tiles)));
+        }
+        private void Expand_Click(object sender, RoutedEventArgs e)
+        {
+            Tile t = (sender as Button).DataContext as Tile;
+            ExpandTile(t);
+        }
+
+        async Task<bool> ExpandTile(Tile t)
+        {
+            t.ToggleExpand();
+            await t.DownloadChildren(sessionkey);
+            RefreshTiles();
             return true;
         }
     }

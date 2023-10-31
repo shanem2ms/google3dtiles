@@ -17,13 +17,22 @@
                 <RowDefinition Height="*" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TreeView Background="AliceBlue" ItemsSource="{Binding Tiles}">
-                <TreeView.Resources>
-                    <HierarchicalDataTemplate DataType="{x:Type local:Tile}" ItemsSource="{Binding ChildTiles}">
-                        <TextBlock Text="{Binding Name}" />
-                    </HierarchicalDataTemplate>
-                </TreeView.Resources>
-            </TreeView>
+            <ListBox Background="AliceBlue" ItemsSource="{Binding Tiles}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type local:Tile}" >
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{Binding Margin}" />
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="3" Text="{Binding Name}" />
+                            <Button Grid.Column="1" Click="Expand_Click">+</Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
             <TextBlock Grid.Row="1" Text="Hello" />
         </Grid>
     </Grid>

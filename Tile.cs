@@ -25,20 +25,47 @@ namespace googletiles
 
         GoogleTile.Node node;
 
+        public bool IsExpanded { get; set; } = false;
+
         public event PropertyChangedEventHandler? PropertyChanged;
         static int tileCount = 0;
         int tileIdx = 0;
+        int level;
+        bool childrenDownloaded = false;
 
+        public int Margin => level * 5;
+
+        public void ToggleExpand()
+        {
+            IsExpanded = !IsExpanded;
+        }
         public string Name => $"tile{tileIdx}";
-        public Tile(GoogleTile.Node n)
+        public Tile(GoogleTile.Node n, int l)
         {
             node = n;
             tileIdx = tileCount++;
+            this.level = l;
+        }
+
+        public void GetExpandedList(List<Tile> tiles)
+        {
+            tiles.Add(this);
+            if (IsExpanded && ChildTiles != null)
+            {
+                foreach (Tile childTile in ChildTiles)
+                {
+                    childTile.GetExpandedList(tiles);
+                }
+            }
         }
 
         public async Task<bool> DownloadChildren(string sessionkey)
         {
+            if (this.childrenDownloaded)
+                return false;
+
             bool hasGlb = false;
+            this.childrenDownloaded = true;
             List<Tile> tiles = new List<Tile>();
 
             if (node.content != null)
@@ -46,14 +73,14 @@ namespace googletiles
                 if (node.content.uri.Contains(".json"))
                 {
                     GoogleTile tile = await GoogleTile.CreateFromUri(node.content.UriNoQuery(), sessionkey);
-                    Tile t = new Tile(tile.root);
-                    tiles.Add(t);                        
+                    Tile t = new Tile(tile.root, level + 1);
+                    tiles.Add(t);
                 }
                 else if (node.content.uri.Contains(".glb"))
                 {
                     hasGlb = true;
-                    Stream stream = await node.GetContentStream(sessionkey);
-                    var gltfModel = glTFLoader.Interface.LoadModel(stream);
+                    //Stream stream = await node.GetContentStream(sessionkey);
+                    //var gltfModel = glTFLoader.Interface.LoadModel(stream);
                     /*
                     byte[]buf = new byte[stream.Length];
                     await stream.ReadAsync(buf, 0, buf.Length);
@@ -63,13 +90,17 @@ namespace googletiles
                 }
             }
 
-            if (node.children == null)
-                return true;
-            foreach (GoogleTile.Node n in node.children)
+            if (node.children != null)
             {
-                Tile tile = new Tile(n);
-                tiles.Add(tile);
-                await tile.DownloadChildren(sessionkey);
+                List<Task<bool>> allTasks = new List<Task<bool>>();
+                foreach (GoogleTile.Node n in node.children)
+                {
+                    Tile tile = new Tile(n, level + 1);
+                    tiles.Add(tile);
+                    allTasks.Add(tile.DownloadChildren(sessionkey));
+                }
+
+                await Task.WhenAll(allTasks);
             }
             ChildTiles = tiles.ToArray();
             return true;
