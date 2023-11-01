@@ -29,10 +29,12 @@ namespace googletiles
         public List<Tile> Tiles { get; private set; } = null;
 
         Tile root;
+        EarthViz earthViz;
         public MainWindow()
         {
             this.DataContext = this;
             InitializeComponent();
+            
             DoDownload();
         }
 
@@ -45,8 +47,9 @@ namespace googletiles
                 GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty);
             sessionkey = rootTile.GetSession();
             root = new Tile(rootTile.root, 0);
-            //Tiles.Add(root);
-            await root.DownloadChildren(sessionkey);
+            earthViz = new EarthViz(root);
+            veldridRenderer.earthViz = earthViz;
+            var result = await root.DownloadChildren(sessionkey);
             RefreshTiles();
             return true;
         }
@@ -54,6 +57,7 @@ namespace googletiles
         void RefreshTiles()
         {
             Tiles = new List<Tile>();
+            root.CollapseSameTiles();
             root.GetExpandedList(Tiles);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Tiles)));
         }
@@ -66,7 +70,7 @@ namespace googletiles
         async Task<bool> ExpandTile(Tile t)
         {
             t.ToggleExpand();
-            await t.DownloadChildren(sessionkey);
+            await t.DownloadChildren(sessionkey);            
             RefreshTiles();
             return true;
         }

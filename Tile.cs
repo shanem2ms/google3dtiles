@@ -12,18 +12,29 @@ using System.IO;
 using glTFLoader;
 using Vortice.DXCore;
 using System.ComponentModel;
+using System.Numerics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace googletiles
 {
     public class Tile : INotifyPropertyChanged
     {
 
-        public GoogleTile.BoundingVolume boundingVolume => node.boundingVolume;
-        public float[] Transform => node.transform;
+        Bounds bounds;
+
+        public Vector3 Center => bounds.center;
+        public Vector3 Scale => bounds.scale;
+        public Vector3 Rx => bounds.rot[0];
+        public Vector3 Ry => bounds.rot[1];
+        public Vector3 Rz => bounds.rot[2];
+
+        public Matrix4x4 RotMat => bounds.rotMat;
+        public float[] Transform { get; set; }
 
         public Tile[] ChildTiles { get; set; }
 
-        GoogleTile.Node node;
+        public string GlbFile { get; set; }
+        public string ChildJson { get; set; }
 
         public bool IsExpanded { get; set; } = false;
 
@@ -40,11 +51,31 @@ namespace googletiles
             IsExpanded = !IsExpanded;
         }
         public string Name => $"tile{tileIdx}";
-        public Tile(GoogleTile.Node n, int l)
+        public Tile(GoogleTile.Node node, int l)
         {
-            node = n;
+            bounds = new Bounds(node.boundingVolume);
             tileIdx = tileCount++;
-            this.level = l;
+            Transform = node.transform;
+            if (node.content != null)
+            {
+                if (node.content.uri.Contains(".json"))
+                    ChildJson = node.content.UriNoQuery();
+                else if (node.content.uri.Contains(".glb"))
+                    GlbFile = node.content.UriNoQuery();
+            }
+            
+            level = l;
+
+            if (node.children != null)
+            {
+                List<Tile> tiles = new List<Tile>();
+                foreach (GoogleTile.Node n in node.children)
+                {
+                    Tile tile = new Tile(n, level + 1);
+                    tiles.Add(tile);
+                }
+                ChildTiles = tiles.ToArray();
+            }
         }
 
         public void GetExpandedList(List<Tile> tiles)
@@ -59,53 +90,103 @@ namespace googletiles
             }
         }
 
+        public void CollapseSameTiles()
+        {
+            while (ChildTiles != null && ChildTiles.Length == 1 &&
+                ChildTiles[0].bounds.Equals(bounds))
+            {
+                if (ChildJson != null &&
+                    ChildTiles[0].ChildJson != null)
+                    Debugger.Break();
+                if (ChildJson == null)
+                {
+                    childrenDownloaded = ChildTiles[0].childrenDownloaded;
+                    ChildJson = ChildTiles[0].ChildJson;
+                }
+                ChildTiles = ChildTiles[0].ChildTiles;
+            }
+            if (ChildTiles == null)
+                return;
+
+            foreach (Tile tile in ChildTiles) 
+            {
+                tile.CollapseSameTiles();
+            }
+        }
+
+        void DownloadGlb()
+        {
+            //Stream stream = await node.GetContentStream(sessionkey);
+            //var gltfModel = glTFLoader.Interface.LoadModel(stream);
+            /*
+            byte[]buf = new byte[stream.Length];
+            await stream.ReadAsync(buf, 0, buf.Length);
+            string filename = content.UriNoQuery();
+            filename = System.IO.Path.GetFileName(filename);
+            await System.IO.File.WriteAllBytesAsync(filename, buf);*/
+        }
+
         public async Task<bool> DownloadChildren(string sessionkey)
         {
             if (this.childrenDownloaded)
                 return false;
 
-            bool hasGlb = false;
             this.childrenDownloaded = true;
             List<Tile> tiles = new List<Tile>();
 
-            if (node.content != null)
+            if (ChildJson != null)
             {
-                if (node.content.uri.Contains(".json"))
-                {
-                    GoogleTile tile = await GoogleTile.CreateFromUri(node.content.UriNoQuery(), sessionkey);
-                    Tile t = new Tile(tile.root, level + 1);
-                    tiles.Add(t);
-                }
-                else if (node.content.uri.Contains(".glb"))
-                {
-                    hasGlb = true;
-                    //Stream stream = await node.GetContentStream(sessionkey);
-                    //var gltfModel = glTFLoader.Interface.LoadModel(stream);
-                    /*
-                    byte[]buf = new byte[stream.Length];
-                    await stream.ReadAsync(buf, 0, buf.Length);
-                    string filename = content.UriNoQuery();
-                    filename = System.IO.Path.GetFileName(filename);
-                    await System.IO.File.WriteAllBytesAsync(filename, buf);*/
-                }
+                if (ChildTiles?.Length > 0)
+                    Debugger.Break();
+                GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
+                Debug.WriteLine(ChildJson);
+                Tile t = new Tile(tile.root, level + 1);
+                tiles.Add(t);
+                ChildTiles = tiles.ToArray();
             }
-
-            if (node.children != null)
+            else
             {
                 List<Task<bool>> allTasks = new List<Task<bool>>();
-                foreach (GoogleTile.Node n in node.children)
+                foreach (Tile tile in ChildTiles)
                 {
-                    Tile tile = new Tile(n, level + 1);
-                    tiles.Add(tile);
-                    allTasks.Add(tile.DownloadChildren(sessionkey));
+                    allTasks.Add(
+                        tile.DownloadChildren(sessionkey));
                 }
-
                 await Task.WhenAll(allTasks);
             }
-            ChildTiles = tiles.ToArray();
             return true;
         }
         
+    }
+
+    public class Bounds : IEquatable<Bounds>
+    {
+        public Vector3 center;
+        public Vector3 scale;
+        public Vector3[] rot;
+        public Matrix4x4 rotMat;
+        public Bounds(GoogleTile.BoundingVolume bv)
+        {
+            center = new Vector3(bv.box[0], bv.box[1], bv.box[2]);
+            scale = new Vector3();
+            rot = new Vector3[3];
+            rotMat = Matrix4x4.Identity;
+            for (int i = 0; i < 3; ++i)
+            {
+                Vector3 vx = new Vector3(bv.box[3 + i * 3], bv.box[3 + i * 3 + 1], bv.box[3 + i * 3 + 2]);
+                scale[i] = vx.Length();
+                rot[i] = Vector3.Normalize(vx);
+                rotMat[i, 0] = rot[i].X;
+                rotMat[i, 1] = rot[i].Y;
+                rotMat[i, 2] = rot[i].Z;
+            }
+        }
+
+        public bool Equals(Bounds? other)
+        {
+            return center == other?.center &&
+                scale == other?.scale;
+        }
     }
 }
 

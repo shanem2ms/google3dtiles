@@ -13,7 +13,9 @@ namespace googletiles
         private Swapchain _sc;
         private CommandList _cl;
         private GraphicsDevice _gd;
-
+        public EarthViz earthViz = null;
+        bool earthVizInitialized = false;
+        //TexturedCube tc = new TexturedCube();
         public bool Rendering { get; private set; }
 
         protected override sealed void Initialize()
@@ -53,7 +55,7 @@ namespace googletiles
 
             return source.CompositionTarget.TransformToDevice.M11;
         }
-
+        
         protected virtual void CreateSwapchain()
         {
             double dpiScale = GetDpiScale();
@@ -83,6 +85,11 @@ namespace googletiles
 
         protected virtual void Render()
         {
+            if (earthViz != null && !earthVizInitialized)
+            {
+                earthViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
+                earthVizInitialized = true;
+            }
             _cl.Begin();
             _cl.SetFramebuffer(_sc.Framebuffer);
             Random r = new Random();
@@ -91,7 +98,8 @@ namespace googletiles
                 new RgbaFloat(0, 0, 0, 1));
             _cl.ClearDepthStencil(1);
 
-            // Do your rendering here (or call a subclass, etc.)
+            if (earthViz != null)
+                earthViz.Draw(_cl, 0.016f);
 
             _cl.End();
             _gd.SubmitCommands(_cl);

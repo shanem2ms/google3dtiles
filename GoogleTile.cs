@@ -32,6 +32,11 @@ namespace googletiles
         public class BoundingVolume
         {
             public float[] box { get; set; }
+
+            public override string ToString()
+            {
+                return string.Join(',', box.Select(a => a.ToString()));
+            }
         }
 
         public class Node

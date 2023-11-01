@@ -9,15 +9,17 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="10" />
             <ColumnDefinition Width="200" />
         </Grid.ColumnDefinitions>
-        <local:VeldridComponent />
-        <Grid Grid.Column="1" >
+        <local:VeldridComponent x:Name="veldridRenderer"/>
+        <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Blue" />
+        <Grid Grid.Column="2" >
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <ListBox Background="AliceBlue" ItemsSource="{Binding Tiles}">
+            <ListBox Name="TilesLB" Background="AliceBlue" ItemsSource="{Binding Tiles}">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:Tile}" >
                         <Grid>
@@ -33,7 +35,24 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <TextBlock Grid.Row="1" Text="Hello" />
+            <Grid Grid.Row="1" DataContext="{Binding ElementName=TilesLB, Path=SelectedItem}" >
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="{Binding Center}" />
+                <TextBlock Grid.Row="1" Text="{Binding Scale}" />
+                <TextBlock Grid.Row="2" Text="{Binding ChildJson}" Background="#FFEEDDFF"/>
+                <TextBlock Grid.Row="3" Text="{Binding GlbFile}" Background="#FFDDEEFF"/>
+                <TextBlock Grid.Row="4" Text="{Binding Rx}" Background="#FFEEEEDD"/>
+                <TextBlock Grid.Row="5" Text="{Binding Ry}" Background="#FFEEEEDD"/>
+                <TextBlock Grid.Row="6" Text="{Binding Rz}" Background="#FFEEEEDD"/>
+            </Grid>
         </Grid>
     </Grid>
 </Window>
