@@ -28,18 +28,6 @@ namespace googletiles
             Unloaded += OnUnloaded;
         }
 
-        protected override void OnMouseDown(MouseButtonEventArgs e)
-        {
-            Mouse.Capture(this);
-            base.OnMouseDown(e);
-        }
-
-        protected override void OnMouseUp(MouseButtonEventArgs e)
-        {
-            Mouse.Capture(null);
-            base.OnMouseUp(e);
-        }
-
         private void OnLoaded(object sender, RoutedEventArgs routedEventArgs)
         {
             Initialize();

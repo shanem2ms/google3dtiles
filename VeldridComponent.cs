@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using Veldrid;
 
@@ -49,6 +50,24 @@ namespace googletiles
             Render();
         }
 
+        protected override void OnMouseDown(MouseButtonEventArgs e)
+        {
+            Mouse.Capture(this);
+            earthViz.OnMouseDown(e, e.GetPosition(this));
+            base.OnMouseDown(e);
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            earthViz.OnMouseMove(e, e.GetPosition(this));
+            base.OnMouseMove(e);
+        }
+        protected override void OnMouseUp(MouseButtonEventArgs e)
+        {
+            earthViz.OnMouseUp(e, e.GetPosition(this));
+            Mouse.Capture(null);
+            base.OnMouseUp(e);
+        }
         private double GetDpiScale()
         {
             PresentationSource source = PresentationSource.FromVisual(this);

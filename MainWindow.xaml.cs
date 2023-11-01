@@ -74,5 +74,17 @@ namespace googletiles
             RefreshTiles();
             return true;
         }
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            earthViz.OnKeyDown(e);
+            base.OnKeyDown(e);
+        }
+
+        protected override void OnKeyUp(KeyEventArgs e)
+        {
+            earthViz.OnKeyUp(e);
+            base.OnKeyUp(e);
+        }
+
     }
 }

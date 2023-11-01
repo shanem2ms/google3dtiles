@@ -8,7 +8,8 @@ using System.Numerics;
 using System.Text;
 using Veldrid;
 using Veldrid.SPIRV;
-using System.Drawing;
+using System.Windows;
+using System.Windows.Input;
 
 namespace googletiles
 {
@@ -91,9 +92,42 @@ namespace googletiles
 
         }
 
-        void MouseMove(Point buttonDown, Point curPoint)
+        Point mouseDownPt;
+        bool mouseDown = false;
+        Quaternion camRot;
+        Vector3 camPos = new Vector3(0, 0, 2);
+        public void OnMouseDown(MouseButtonEventArgs e, Point point)
         {
+            mouseDownPt = point;
+            mouseDown = true;
+        }
 
+        public void OnMouseMove(MouseEventArgs e, Point point)
+        {
+            if (mouseDown)
+            {
+
+            }
+        }
+        public void OnMouseUp(MouseButtonEventArgs e, Point point)
+        {
+        }
+
+        Vector3 motion = Vector3.Zero;
+        public void OnKeyDown(KeyEventArgs e)
+        {
+            if (e.Key == Key.W)
+            {
+                Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
+                motion -= dir * 0.1f;
+            }
+        }
+        public void OnKeyUp(KeyEventArgs e)
+        {
+            if (e.Key == Key.W)
+            {
+
+            }
         }
         void DrawTile(CommandList cl, Tile tile)
         {
@@ -114,8 +148,12 @@ namespace googletiles
                     0.5f,
                     100f));
 
-                cl.UpdateBuffer(_viewBuffer, 0, Matrix4x4.CreateLookAt(Vector3.UnitZ * 2.5f, Vector3.Zero, Vector3.UnitY));
+                Matrix4x4 viewMat =
+                    Matrix4x4.CreateFromQuaternion(camRot) *
+                    Matrix4x4.CreateTranslation(camPos);
+                Matrix4x4.Invert(viewMat, out viewMat);
 
+                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
                 cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
                 cl.SetVertexBuffer(0, _vertexBuffer);
                 cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
