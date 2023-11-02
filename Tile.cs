@@ -121,8 +121,7 @@ namespace googletiles
             if (GlbFile != null)
             {                
                 Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
-                gltf = glTFLoader.Interface.LoadModel(stream);
-
+                gltf = glTFLoader.Interface.LoadModel(stream);                
                 /*
                 byte[] buf = new byte[stream.Length];
                 await stream.ReadAsync(buf, 0, buf.Length);
