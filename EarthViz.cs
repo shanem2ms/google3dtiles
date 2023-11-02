@@ -10,6 +10,8 @@ using Veldrid;
 using Veldrid.SPIRV;
 using System.Windows;
 using System.Windows.Input;
+using System.Diagnostics;
+using glTFLoader.Schema;
 
 namespace googletiles
 {
@@ -74,7 +76,7 @@ namespace googletiles
             RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Solid, FrontFace.Clockwise, true, false);
             _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                 BlendStateDescription.SingleOverrideBlend,
-                DepthStencilStateDescription.Disabled,
+                DepthStencilStateDescription.DepthOnlyLessEqual,
                 description,
                 PrimitiveTopology.TriangleList,
                 shaderSet,
@@ -94,72 +96,119 @@ namespace googletiles
 
         Point mouseDownPt;
         bool mouseDown = false;
-        Quaternion camRot;
+        Quaternion camRot = Quaternion.Identity;
+        Quaternion camRotMouseDown;
         Vector3 camPos = new Vector3(0, 0, 2);
+        Vector3 wsMotion;
+        Vector3 adMotion;
+        Vector3 eqMotion;
         public void OnMouseDown(MouseButtonEventArgs e, Point point)
         {
             mouseDownPt = point;
+            camRotMouseDown = camRot;
             mouseDown = true;
         }
 
+        float rotSpeed = 0.005f;
         public void OnMouseMove(MouseEventArgs e, Point point)
         {
             if (mouseDown)
             {
-
+                double xdiff = point.X - mouseDownPt.X;
+                double ydiff = point.Y - mouseDownPt.Y;
+                camRot = camRotMouseDown * Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)-xdiff * rotSpeed) *
+                    Quaternion.CreateFromAxisAngle(Vector3.UnitX, (float)-ydiff * rotSpeed);
             }
         }
         public void OnMouseUp(MouseButtonEventArgs e, Point point)
         {
+            mouseDown = false;
         }
 
-        Vector3 motion = Vector3.Zero;
+        float speed = 0.01f;
         public void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.W)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
-                motion -= dir * 0.1f;
+                wsMotion = -dir * speed;
+            }
+            else if (e.Key == Key.S)
+            {
+                Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
+                wsMotion = dir * speed;
+            }
+            else if (e.Key == Key.A)
+            {
+                Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
+                adMotion = -dir * speed;
+            }
+            else if (e.Key == Key.D)
+            {
+                Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
+                adMotion = dir * speed;
+            }
+            else if (e.Key == Key.E)
+            {
+                Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
+                eqMotion = dir * speed;
+            }
+            else if (e.Key == Key.Q)
+            {
+                Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
+                eqMotion = -dir * speed;
             }
         }
         public void OnKeyUp(KeyEventArgs e)
         {
-            if (e.Key == Key.W)
+            if (e.Key == Key.W || e.Key == Key.S)
             {
-
+                wsMotion = Vector3.Zero;
             }
+            else if (e.Key == Key.A || e.Key == Key.D)
+            {
+                adMotion = Vector3.Zero;
+            }
+            else if (e.Key == Key.E || e.Key == Key.Q)
+            {
+                eqMotion = Vector3.Zero;
+            }
+
         }
         void DrawTile(CommandList cl, Tile tile)
         {
             if (tile == null)
                 return;
 
-            if (tile.GlbFile != null)
+            if (tile.gltf != null)
             {
-                Matrix4x4 worldMat =
-                    Matrix4x4.CreateScale(tile.Scale * 2) *
-                    tile.RotMat *
-                    Matrix4x4.CreateTranslation(tile.Center) *
-                    Matrix4x4.CreateScale(invScale);
+                foreach (var mesh in tile.gltf.Meshes)
+                {
+                    Matrix4x4 worldMat =
+                        Matrix4x4.CreateScale(tile.Scale * 2) *
+                        tile.RotMat *
+                        Matrix4x4.CreateTranslation(tile.Center) *
+                        Matrix4x4.CreateScale(invScale);
 
-                cl.UpdateBuffer(_projectionBuffer, 0, Matrix4x4.CreatePerspectiveFieldOfView(
-                    1.0f,
-                    1.0f,
-                    0.5f,
-                    100f));
+                    cl.UpdateBuffer(_projectionBuffer, 0, Matrix4x4.CreatePerspectiveFieldOfView(
+                        1.0f,
+                        1.0f,
+                        0.5f,
+                        100f));
 
-                Matrix4x4 viewMat =
-                    Matrix4x4.CreateFromQuaternion(camRot) *
-                    Matrix4x4.CreateTranslation(camPos);
-                Matrix4x4.Invert(viewMat, out viewMat);
+                    Matrix4x4 viewMat =
+                        Matrix4x4.CreateFromQuaternion(camRot) *
+                        Matrix4x4.CreateTranslation(camPos);
+                    Matrix4x4.Invert(viewMat, out viewMat);
 
-                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
-                cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
-                cl.SetVertexBuffer(0, _vertexBuffer);
-                cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
-                cl.SetGraphicsResourceSet(0, _projViewSet);
-                cl.SetGraphicsResourceSet(1, _worldTextureSet);
-                cl.DrawIndexed(36, 1, 0, 0, 0);
+                    cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
+                    cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
+                    cl.SetVertexBuffer(0, _vertexBuffer);
+                    cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
+                    cl.SetGraphicsResourceSet(0, _projViewSet);
+                    cl.SetGraphicsResourceSet(1, _worldTextureSet);
+                    cl.DrawIndexed(36, 1, 0, 0, 0);
+                }
             }
             if (tile.ChildTiles != null)
             {
@@ -171,6 +220,10 @@ namespace googletiles
 
         public void Draw(CommandList cl, float deltaSeconds)
         {
+
+            camPos += wsMotion;
+            camPos += adMotion;
+            camPos += eqMotion;
             cl.ClearColorTarget(0, RgbaFloat.Black);
             cl.ClearDepthStencil(1f);
             cl.SetPipeline(_pipeline);

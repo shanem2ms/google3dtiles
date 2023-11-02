@@ -70,20 +70,19 @@ namespace googletiles
                 }
                 return string.Empty;
             }
-
-            public async Task<Stream> GetContentStream(string sessionkey)
-            {
-                HttpClient httpClient = new HttpClient();
-                string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
-                string url = content.UriNoQuery();
-                var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
-                return await response.Content.ReadAsStreamAsync();
-            }
         }
         public Node root { get; set; }
 
         static string site = "https://tile.googleapis.com";
         static string key = "key=AIzaSyB-uBxCvbThmf-lSIqbdMvE1wPJ8fVNbjs";
+        public static async Task<Stream> GetContentStream(string sessionkey, string url)
+        {
+            HttpClient httpClient = new HttpClient();
+            string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
+            var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
+            return await response.Content.ReadAsStreamAsync();
+        }
+
         public string GetSession()
         {
             return root.GetSession();

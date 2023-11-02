@@ -10,10 +10,13 @@ using System.Threading.Tasks;
 using System.Windows.Media.Animation;
 using System.IO;
 using glTFLoader;
+using glTFLoader.Schema;
 using Vortice.DXCore;
 using System.ComponentModel;
 using System.Numerics;
 using System.Diagnostics.CodeAnalysis;
+using static googletiles.GoogleTile;
+using System.Windows.Input;
 
 namespace googletiles
 {
@@ -21,7 +24,7 @@ namespace googletiles
     {
 
         Bounds bounds;
-
+        public Gltf gltf;
         public Vector3 Center => bounds.center;
         public Vector3 Scale => bounds.scale;
         public Vector3 Rx => bounds.rot[0];
@@ -113,17 +116,20 @@ namespace googletiles
                 tile.CollapseSameTiles();
             }
         }
-
-        void DownloadGlb()
+        public async Task<bool> DownloadGlb(string sessionkey)
         {
-            //Stream stream = await node.GetContentStream(sessionkey);
-            //var gltfModel = glTFLoader.Interface.LoadModel(stream);
-            /*
-            byte[]buf = new byte[stream.Length];
-            await stream.ReadAsync(buf, 0, buf.Length);
-            string filename = content.UriNoQuery();
-            filename = System.IO.Path.GetFileName(filename);
-            await System.IO.File.WriteAllBytesAsync(filename, buf);*/
+            if (GlbFile != null)
+            {                
+                Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
+                gltf = glTFLoader.Interface.LoadModel(stream);
+
+                /*
+                byte[] buf = new byte[stream.Length];
+                await stream.ReadAsync(buf, 0, buf.Length);
+                string filename = System.IO.Path.GetFileName(GlbFile);
+                await System.IO.File.WriteAllBytesAsync(filename, buf);*/
+            }
+            return true;
         }
 
         public async Task<bool> DownloadChildren(string sessionkey)
@@ -131,9 +137,12 @@ namespace googletiles
             if (this.childrenDownloaded)
                 return false;
 
+            List<Task<bool>> allTasks = new List<Task<bool>>();
+            Task<bool> task = DownloadGlb(sessionkey);
+            allTasks.Add(task);
+
             this.childrenDownloaded = true;
             List<Tile> tiles = new List<Tile>();
-
             if (ChildJson != null)
             {
                 if (ChildTiles?.Length > 0)
@@ -146,14 +155,13 @@ namespace googletiles
             }
             else
             {
-                List<Task<bool>> allTasks = new List<Task<bool>>();
                 foreach (Tile tile in ChildTiles)
                 {
                     allTasks.Add(
                         tile.DownloadChildren(sessionkey));
                 }
-                await Task.WhenAll(allTasks);
             }
+            await Task.WhenAll(allTasks);
             return true;
         }
         
