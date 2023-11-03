@@ -73,7 +73,7 @@ namespace googletiles
                 new ResourceLayoutDescription(
                     new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Solid, FrontFace.Clockwise, true, false);
+            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Wireframe, FrontFace.Clockwise, true, false);
             _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                 BlendStateDescription.SingleOverrideBlend,
                 DepthStencilStateDescription.DepthOnlyLessEqual,
@@ -180,35 +180,32 @@ namespace googletiles
             if (tile == null)
                 return;
 
-            if (tile.gltf != null)
+            if (tile.GlbFile != null)
             {
-                foreach (var mesh in tile.gltf.Meshes)
-                {
-                    Matrix4x4 worldMat =
-                        Matrix4x4.CreateScale(tile.Scale * 2) *
-                        tile.RotMat *
-                        Matrix4x4.CreateTranslation(tile.Center) *
-                        Matrix4x4.CreateScale(invScale);
+                Matrix4x4 worldMat =
+                    Matrix4x4.CreateScale(tile.Scale * 2) *
+                    tile.RotMat *
+                    Matrix4x4.CreateTranslation(tile.Center) *
+                    Matrix4x4.CreateScale(invScale);
 
-                    cl.UpdateBuffer(_projectionBuffer, 0, Matrix4x4.CreatePerspectiveFieldOfView(
-                        1.0f,
-                        1.0f,
-                        0.5f,
-                        100f));
+                cl.UpdateBuffer(_projectionBuffer, 0, Matrix4x4.CreatePerspectiveFieldOfView(
+                    1.0f,
+                    1.0f,
+                    0.05f,
+                    10f));
 
-                    Matrix4x4 viewMat =
-                        Matrix4x4.CreateFromQuaternion(camRot) *
-                        Matrix4x4.CreateTranslation(camPos);
-                    Matrix4x4.Invert(viewMat, out viewMat);
+                Matrix4x4 viewMat =
+                    Matrix4x4.CreateFromQuaternion(camRot) *
+                    Matrix4x4.CreateTranslation(camPos);
+                Matrix4x4.Invert(viewMat, out viewMat);
 
-                    cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
-                    cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
-                    cl.SetVertexBuffer(0, _vertexBuffer);
-                    cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
-                    cl.SetGraphicsResourceSet(0, _projViewSet);
-                    cl.SetGraphicsResourceSet(1, _worldTextureSet);
-                    cl.DrawIndexed(36, 1, 0, 0, 0);
-                }
+                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
+                cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
+                cl.SetVertexBuffer(0, _vertexBuffer);
+                cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
+                cl.SetGraphicsResourceSet(0, _projViewSet);
+                cl.SetGraphicsResourceSet(1, _worldTextureSet);
+                cl.DrawIndexed(36, 1, 0, 0, 0);
             }
             if (tile.ChildTiles != null)
             {

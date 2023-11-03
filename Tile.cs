@@ -119,14 +119,21 @@ namespace googletiles
         public async Task<bool> DownloadGlb(string sessionkey)
         {
             if (GlbFile != null)
-            {                
+            {                                
                 Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
-                gltf = glTFLoader.Interface.LoadModel(stream);                
+                byte[] buf;
+                var memoryStream = new MemoryStream();
+                stream.CopyTo(memoryStream);
+                buf = memoryStream.ToArray();
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                gltf = glTFLoader.Interface.LoadModel(memoryStream);
                 /*
-                byte[] buf = new byte[stream.Length];
-                await stream.ReadAsync(buf, 0, buf.Length);
+                int pos = (int)memoryStream.Position;
+                byte[] buf2 = new byte[buf.Length - pos];
+                Array.Copy(buf, pos, buf2, 0, buf.Length);
                 string filename = System.IO.Path.GetFileName(GlbFile);
-                await System.IO.File.WriteAllBytesAsync(filename, buf);*/
+                await System.IO.File.WriteAllBytesAsync(filename, buf2);
+                */
             }
             return true;
         }
