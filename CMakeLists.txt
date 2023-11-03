@@ -8,10 +8,15 @@ set(PROJECT_NAME glb)
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release") 
 
 set(SourceFiles
-"glb.cpp"
-)
+	"glb.cpp")
 
 add_executable(${PROJECT_NAME} ${SourceFiles})
+add_library(lib${PROJECT_NAME} SHARED ${SourceFiles})
 
-find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
+find_path(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h" HINTS ${CMAKE_CURRENT_SOURCE_DIR}/tinygltf REQUIRED)
+message(${TINYGLTF_INCLUDE_DIRS})
+target_include_directories(lib${PROJECT_NAME} PRIVATE ${TINYGLTF_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} PRIVATE ${TINYGLTF_INCLUDE_DIRS})
+find_package(draco CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE draco::draco)
+target_link_libraries(lib${PROJECT_NAME} PRIVATE draco::draco)

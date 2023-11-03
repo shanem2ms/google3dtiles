@@ -9,14 +9,16 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Media.Animation;
 using System.IO;
-using glTFLoader;
-using glTFLoader.Schema;
 using Vortice.DXCore;
 using System.ComponentModel;
 using System.Numerics;
 using System.Diagnostics.CodeAnalysis;
 using static googletiles.GoogleTile;
 using System.Windows.Input;
+using System.Runtime.InteropServices;
+using System.Runtime;
+using Veldrid;
+using static System.Net.WebRequestMethods;
 
 namespace googletiles
 {
@@ -24,7 +26,7 @@ namespace googletiles
     {
 
         Bounds bounds;
-        public Gltf gltf;
+        public GlbMesh mesh;
         public Vector3 Center => bounds.center;
         public Vector3 Scale => bounds.scale;
         public Vector3 Rx => bounds.rot[0];
@@ -116,24 +118,22 @@ namespace googletiles
                 tile.CollapseSameTiles();
             }
         }
+        
         public async Task<bool> DownloadGlb(string sessionkey)
         {
             if (GlbFile != null)
             {                                
                 Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
-                byte[] buf;
-                var memoryStream = new MemoryStream();
-                stream.CopyTo(memoryStream);
-                buf = memoryStream.ToArray();
-                memoryStream.Seek(0, SeekOrigin.Begin);
-                gltf = glTFLoader.Interface.LoadModel(memoryStream);
+                mesh = new GlbMesh(stream);
+
+                //gltf = glTFLoader.Interface.LoadModel(memoryStream);
                 /*
                 int pos = (int)memoryStream.Position;
                 byte[] buf2 = new byte[buf.Length - pos];
                 Array.Copy(buf, pos, buf2, 0, buf.Length);
-                string filename = System.IO.Path.GetFileName(GlbFile);
-                await System.IO.File.WriteAllBytesAsync(filename, buf2);
                 */
+                //string filename = System.IO.Path.GetFileName(GlbFile);
+                //await System.IO.File.WriteAllBytesAsync(filename, buf);
             }
             return true;
         }
@@ -154,12 +154,11 @@ namespace googletiles
                 if (ChildTiles?.Length > 0)
                     Debugger.Break();
                 GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
-                Debug.WriteLine(ChildJson);
                 Tile t = new Tile(tile.root, level + 1);
                 tiles.Add(t);
                 ChildTiles = tiles.ToArray();
             }
-            else
+            else if (ChildTiles != null)
             {
                 foreach (Tile tile in ChildTiles)
                 {
@@ -173,6 +172,115 @@ namespace googletiles
         
     }
 
+    public class GlbMesh
+    {
+        int[] triangleList;
+        float[] ptList;
+        nint imageBuf;
+        public DeviceBuffer _vertexBuffer;
+        public DeviceBuffer _indexBuffer;
+        private Texture _surfaceTexture;
+        private TextureView _surfaceTextureView;
+        private DeviceBuffer _worldBuffer;
+        public ResourceSet _worldTextureSet;
+        Matrix4x4 worldMat;
+
+        public int triangleCnt => triangleList.Length / 3;
+        public Vector3 translation;
+
+        [DllImport("libglb.dll")]
+        static extern IntPtr LoadMesh(nint srcMem, uint size);
+
+        [DllImport("libglb.dll")]
+        static extern uint FaceCount(nint pmesh);
+
+        [DllImport("libglb.dll")]
+        static extern bool GetFaces(nint pmesh, nint pfaces, uint bufsize);
+
+        [DllImport("libglb.dll")]
+        static extern uint PtCount(nint pmesh);
+
+        [DllImport("libglb.dll")]
+        static extern bool GetPoints(nint pmesh, nint ppoints, uint bufsize, nint ptranslate);
+
+        [DllImport("libglb.dll")]
+        static extern bool GetTexture(nint pmesh, nint ptexture, uint bufsize);
+
+        [DllImport("libglb.dll")]
+        static extern void FreeMesh(nint pmesh);
+        public GlbMesh(Stream stream)
+        {
+            byte[] buf;
+            var memoryStream = new MemoryStream();
+            stream.CopyTo(memoryStream);
+            buf = memoryStream.ToArray();
+            memoryStream.Seek(0, SeekOrigin.Begin);
+            nint nativeBuf = Marshal.AllocHGlobal(buf.Length);
+            Marshal.Copy(buf, 0, nativeBuf, buf.Length);
+            nint meshptr = LoadMesh(nativeBuf, (uint)buf.Length);
+
+            Marshal.FreeHGlobal(nativeBuf);
+            {
+                uint nfaces = FaceCount(meshptr);
+                nint faceBuf = Marshal.AllocHGlobal((int)nfaces * 3 * sizeof(uint));
+                bool success = GetFaces(meshptr, faceBuf, nfaces * 3 * sizeof(uint));
+                triangleList = new int[nfaces * 3];
+                Marshal.Copy(faceBuf, triangleList, 0, (int)nfaces * 3);
+                Marshal.FreeHGlobal(faceBuf);
+            }
+            {
+                uint npoints = PtCount(meshptr);
+                nint ptBuf = Marshal.AllocHGlobal((int)npoints * 5 * sizeof(float));
+                nint ptranslate = Marshal.AllocHGlobal(3 * sizeof(float));
+                bool success = GetPoints(meshptr, ptBuf, npoints * 5 * sizeof(float), ptranslate);
+                ptList = new float[npoints * 5];
+                Marshal.Copy(ptBuf, ptList, 0, (int)npoints * 5);
+                translation = Marshal.PtrToStructure<Vector3>(ptranslate);
+                Marshal.FreeHGlobal(ptBuf);
+                Marshal.FreeHGlobal(ptranslate);
+            }
+            {
+                imageBuf = Marshal.AllocHGlobal(256*256*4);
+                bool success = GetTexture(meshptr, imageBuf, 256 * 256 * 4);
+            }
+            FreeMesh(meshptr);
+            CreateIBVB();
+        }
+        void CreateIBVB()
+        {
+            ResourceFactory factory = VeldridComponent.Graphics.ResourceFactory;
+            _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            worldMat =
+                Matrix4x4.CreateTranslation(translation) *
+                Matrix4x4.CreateScale(new Vector3(1 / 8000000.0f));
+            VeldridComponent.Graphics.UpdateBuffer(_worldBuffer, 0, ref worldMat);
+
+            _vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(ptList.Length * sizeof(float)), BufferUsage.VertexBuffer));
+            VeldridComponent.Graphics.UpdateBuffer(_vertexBuffer, 0, ptList);
+
+            _indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(int) * (uint)triangleList.Length, BufferUsage.IndexBuffer));
+            VeldridComponent.Graphics.UpdateBuffer(_indexBuffer, 0, triangleList);
+
+            _surfaceTexture = factory.CreateTexture(new TextureDescription(256, 256, 1, 1, 1, PixelFormat.R8_G8_B8_A8_UNorm, TextureUsage.Sampled, TextureType.Texture2D, 0));
+            VeldridComponent.Graphics.UpdateTexture(_surfaceTexture, imageBuf, 256 * 256 * 4, 0, 0, 0, 256, 256, 1, 0, 0);
+            Marshal.FreeHGlobal(imageBuf);
+            _surfaceTextureView = factory.CreateTextureView(_surfaceTexture);
+
+            ResourceLayout worldTextureLayout = factory.CreateResourceLayout(
+                            new ResourceLayoutDescription(
+                                new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                                new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
+                                new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
+            
+
+            _worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
+                worldTextureLayout,
+                _worldBuffer,
+                _surfaceTextureView,
+                VeldridComponent.Graphics.Aniso4xSampler));
+
+        }
+    }
     public class Bounds : IEquatable<Bounds>
     {
         public Vector3 center;

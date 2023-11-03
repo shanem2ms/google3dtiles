@@ -9,7 +9,6 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Media.Animation;
 using System.IO;
-using glTFLoader;
 using Vortice.DXCore;
 
 namespace googletiles

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "googletiles": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

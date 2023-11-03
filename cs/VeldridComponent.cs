@@ -19,9 +19,10 @@ namespace googletiles
         //TexturedCube tc = new TexturedCube();
         public bool Rendering { get; private set; }
 
+        public static GraphicsDevice Graphics;
         protected override sealed void Initialize()
         {
-            _gd = GraphicsDevice.CreateD3D11(new GraphicsDeviceOptions());
+            Graphics = _gd = GraphicsDevice.CreateD3D11(new GraphicsDeviceOptions());
             _cl = _gd.ResourceFactory.CreateCommandList();
             CreateSwapchain();
 
