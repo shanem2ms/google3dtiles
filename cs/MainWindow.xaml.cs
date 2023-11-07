@@ -60,7 +60,7 @@ namespace googletiles
         void RefreshTiles()
         {
             Tiles = new List<Tile>();
-            root.CollapseSameTiles();
+            //root.CollapseSameTiles();
             root.GetExpandedList(Tiles);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Tiles)));
         }

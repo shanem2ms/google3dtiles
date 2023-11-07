@@ -121,20 +121,8 @@ namespace googletiles
         
         public async Task<bool> DownloadGlb(string sessionkey)
         {
-            if (GlbFile != null)
-            {                                
-                Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
-                mesh = new GlbMesh(stream);
-
-                //gltf = glTFLoader.Interface.LoadModel(memoryStream);
-                /*
-                int pos = (int)memoryStream.Position;
-                byte[] buf2 = new byte[buf.Length - pos];
-                Array.Copy(buf, pos, buf2, 0, buf.Length);
-                */
-                //string filename = System.IO.Path.GetFileName(GlbFile);
-                //await System.IO.File.WriteAllBytesAsync(filename, buf);
-            }
+            Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
+            mesh = new GlbMesh(stream);
             return true;
         }
 
@@ -144,8 +132,10 @@ namespace googletiles
                 return false;
 
             List<Task<bool>> allTasks = new List<Task<bool>>();
-            Task<bool> task = DownloadGlb(sessionkey);
-            allTasks.Add(task);
+            if (GlbFile != null)
+            {
+                return await DownloadGlb(sessionkey);
+            }
 
             this.childrenDownloaded = true;
             List<Tile> tiles = new List<Tile>();
@@ -158,7 +148,8 @@ namespace googletiles
                 tiles.Add(t);
                 ChildTiles = tiles.ToArray();
             }
-            else if (ChildTiles != null)
+            
+            if (ChildTiles != null)
             {
                 foreach (Tile tile in ChildTiles)
                 {
