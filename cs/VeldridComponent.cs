@@ -15,6 +15,7 @@ namespace googletiles
         private CommandList _cl;
         private GraphicsDevice _gd;
         public EarthViz earthViz = null;
+        public CameraView cameraView = null;
         bool earthVizInitialized = false;
         //TexturedCube tc = new TexturedCube();
         public bool Rendering { get; private set; }
@@ -54,18 +55,18 @@ namespace googletiles
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
             Mouse.Capture(this);
-            earthViz.OnMouseDown(e, e.GetPosition(this));
+            cameraView.OnMouseDown(e, e.GetPosition(this));
             base.OnMouseDown(e);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            earthViz.OnMouseMove(e, e.GetPosition(this));
+            cameraView.OnMouseMove(e, e.GetPosition(this));
             base.OnMouseMove(e);
         }
         protected override void OnMouseUp(MouseButtonEventArgs e)
         {
-            earthViz.OnMouseUp(e, e.GetPosition(this));
+            cameraView.OnMouseUp(e, e.GetPosition(this));
             Mouse.Capture(null);
             base.OnMouseUp(e);
         }
@@ -105,6 +106,7 @@ namespace googletiles
 
         protected virtual void Render()
         {
+            cameraView?.Update();
             if (earthViz != null && !earthVizInitialized)
             {
                 earthViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
@@ -119,7 +121,7 @@ namespace googletiles
             _cl.ClearDepthStencil(1);
 
             if (earthViz != null)
-                earthViz.Draw(_cl, 0.016f);
+                earthViz.Draw(_cl, cameraView, 0.016f);
 
             _cl.End();
             _gd.SubmitCommands(_cl);

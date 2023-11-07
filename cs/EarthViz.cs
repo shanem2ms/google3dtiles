@@ -20,11 +20,10 @@ namespace googletiles
         private readonly uint[] _indices;
         private DeviceBuffer _projectionBuffer;
         private DeviceBuffer _viewBuffer;
-        private DeviceBuffer _vertexBuffer;
-        private DeviceBuffer _indexBuffer;
         private Pipeline _pipeline;
         private ResourceSet _projViewSet;
-        private float _ticks;
+        private DeviceBuffer _vertexBuffer;
+        private DeviceBuffer _indexBuffer;
 
         // 8000000
         Tile root;
@@ -65,7 +64,7 @@ namespace googletiles
 
             ResourceLayout worldTextureLayout = factory.CreateResourceLayout(
                 new ResourceLayoutDescription(
-                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex), 
+                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                     new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
                     new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
 
@@ -86,130 +85,39 @@ namespace googletiles
 
         }
 
-        Point mouseDownPt;
-        bool mouseDown = false;
-        Quaternion camRot = Quaternion.Identity;
-        Quaternion camRotMouseDown;
-        Vector3 camPos = new Vector3(0, 0, 2);
-        Vector3 wsMotion;
-        Vector3 adMotion;
-        Vector3 eqMotion;
-        public void OnMouseDown(MouseButtonEventArgs e, Point point)
-        {
-            mouseDownPt = point;
-            camRotMouseDown = camRot;
-            mouseDown = true;
-        }
 
-        float rotSpeed = 0.005f;
-        public void OnMouseMove(MouseEventArgs e, Point point)
-        {
-            if (mouseDown)
-            {
-                double xdiff = point.X - mouseDownPt.X;
-                double ydiff = point.Y - mouseDownPt.Y;
-                camRot = camRotMouseDown * Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)-xdiff * rotSpeed) *
-                    Quaternion.CreateFromAxisAngle(Vector3.UnitX, (float)-ydiff * rotSpeed);
-            }
-        }
-        public void OnMouseUp(MouseButtonEventArgs e, Point point)
-        {
-            mouseDown = false;
-        }
-
-        float speed = 0.01f;
-        public void OnKeyDown(KeyEventArgs e)
-        {
-            if (e.Key == Key.W)
-            {
-                Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
-                wsMotion = -dir * speed;
-            }
-            else if (e.Key == Key.S)
-            {
-                Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
-                wsMotion = dir * speed;
-            }
-            else if (e.Key == Key.A)
-            {
-                Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
-                adMotion = -dir * speed;
-            }
-            else if (e.Key == Key.D)
-            {
-                Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
-                adMotion = dir * speed;
-            }
-            else if (e.Key == Key.E)
-            {
-                Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
-                eqMotion = dir * speed;
-            }
-            else if (e.Key == Key.Q)
-            {
-                Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
-                eqMotion = -dir * speed;
-            }
-        }
-        public void OnKeyUp(KeyEventArgs e)
-        {
-            if (e.Key == Key.W || e.Key == Key.S)
-            {
-                wsMotion = Vector3.Zero;
-            }
-            else if (e.Key == Key.A || e.Key == Key.D)
-            {
-                adMotion = Vector3.Zero;
-            }
-            else if (e.Key == Key.E || e.Key == Key.Q)
-            {
-                eqMotion = Vector3.Zero;
-            }
-
-        }
-        void DrawTile(CommandList cl, Tile tile)
+        void DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile)
         {
             if (tile == null)
                 return;
 
             if (tile.mesh != null)
-            {
-                cl.UpdateBuffer(_projectionBuffer, 0, Matrix4x4.CreatePerspectiveFieldOfView(
-                    1.0f,
-                    1.0f,
-                    0.05f,
-                    10f));
-
-                Matrix4x4 viewMat =
-                    Matrix4x4.CreateFromQuaternion(camRot) *
-                    Matrix4x4.CreateTranslation(camPos);
-                Matrix4x4.Invert(viewMat, out viewMat);
-
+            {               
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
                 cl.SetVertexBuffer(0, tile.mesh._vertexBuffer);
                 cl.SetIndexBuffer(tile.mesh._indexBuffer, IndexFormat.UInt32);
                 cl.SetGraphicsResourceSet(0, _projViewSet);
                 cl.SetGraphicsResourceSet(1, tile.mesh._worldTextureSet);
                 cl.DrawIndexed((uint)tile.mesh.triangleCnt, 1, 0, 0, 0);
-            }
+            }        
             if (tile.ChildTiles != null)
             {
                 foreach (Tile childTile in tile.ChildTiles)
-                { DrawTile(cl, childTile); }
+                { DrawTile(cl, ref viewMat, childTile); }
             }
         }
 
 
-        public void Draw(CommandList cl, float deltaSeconds)
+        public void Draw(CommandList cl, CameraView view, float deltaSeconds)
         {
 
-            camPos += wsMotion;
-            camPos += adMotion;
-            camPos += eqMotion;
+            Matrix4x4 viewMat = view.ViewMat;
+            Matrix4x4 projMat = view.ProjMat;
             cl.ClearColorTarget(0, RgbaFloat.Black);
             cl.ClearDepthStencil(1f);
             cl.SetPipeline(_pipeline);
-            DrawTile(cl, root);            
+            cl.UpdateBuffer(_projectionBuffer, 0, ref projMat);
+            DrawTile(cl, ref viewMat, root);
         }
 
         private static VertexPositionTexture[] GetCubeVertices()
@@ -265,6 +173,7 @@ namespace googletiles
 
             return indices;
         }
+
 
         private const string VertexCode = @"
 #version 450

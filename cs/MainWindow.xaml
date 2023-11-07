@@ -16,10 +16,12 @@
         <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Blue" />
         <Grid Grid.Column="2" >
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <ListBox Name="TilesLB" Background="AliceBlue" ItemsSource="{Binding Tiles}">
+            <Button Content="Select View" Click="SelectView_Click" />
+            <ListBox Grid.Row="1" Name="TilesLB" Background="AliceBlue" ItemsSource="{Binding Tiles}">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:Tile}" >
                         <Grid>
@@ -35,7 +37,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <Grid Grid.Row="1" DataContext="{Binding ElementName=TilesLB, Path=SelectedItem}" >
+            <Grid Grid.Row="2" DataContext="{Binding ElementName=TilesLB, Path=SelectedItem}" >
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />

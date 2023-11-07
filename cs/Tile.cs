@@ -138,7 +138,7 @@ namespace googletiles
             return true;
         }
 
-        public async Task<bool> DownloadChildren(string sessionkey)
+        public async Task<bool> DownloadChildren(string sessionkey, CameraView view)
         {
             if (this.childrenDownloaded)
                 return false;
@@ -163,7 +163,7 @@ namespace googletiles
                 foreach (Tile tile in ChildTiles)
                 {
                     allTasks.Add(
-                        tile.DownloadChildren(sessionkey));
+                        tile.DownloadChildren(sessionkey, view));
                 }
             }
             await Task.WhenAll(allTasks);
@@ -251,8 +251,7 @@ namespace googletiles
             ResourceFactory factory = VeldridComponent.Graphics.ResourceFactory;
             _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
             worldMat =
-                Matrix4x4.CreateTranslation(translation) *
-                Matrix4x4.CreateScale(new Vector3(1 / 8000000.0f));
+                Matrix4x4.CreateTranslation(translation);
             VeldridComponent.Graphics.UpdateBuffer(_worldBuffer, 0, ref worldMat);
 
             _vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(ptList.Length * sizeof(float)), BufferUsage.VertexBuffer));
@@ -287,12 +286,14 @@ namespace googletiles
         public Vector3 scale;
         public Vector3[] rot;
         public Matrix4x4 rotMat;
+        public Vector3[] pts;
         public Bounds(GoogleTile.BoundingVolume bv)
         {
             center = new Vector3(bv.box[0], bv.box[1], bv.box[2]);
             scale = new Vector3();
             rot = new Vector3[3];
             rotMat = Matrix4x4.Identity;
+            Vector3[] scaledvecs = new Vector3[3]; 
             for (int i = 0; i < 3; ++i)
             {
                 Vector3 vx = new Vector3(bv.box[3 + i * 3], bv.box[3 + i * 3 + 1], bv.box[3 + i * 3 + 2]);
@@ -301,6 +302,18 @@ namespace googletiles
                 rotMat[i, 0] = rot[i].X;
                 rotMat[i, 1] = rot[i].Y;
                 rotMat[i, 2] = rot[i].Z;
+            }
+            pts = new Vector3[8];
+            Matrix4x4 worldMat =
+                    Matrix4x4.CreateScale(scale) *
+                    rotMat *
+                    Matrix4x4.CreateTranslation(center);
+            for (int i = 0; i < 8; ++i)
+            {
+                Vector3 pt = new Vector3((i & 1) != 0 ? -1 : 1,
+                                ((i >> 1) & 1) != 0 ? -1 : 1,
+                                ((i >> 2) & 1) != 0 ? -1 : 1);
+                pts[i] = Vector3.Transform(pt, worldMat);
             }
         }
 

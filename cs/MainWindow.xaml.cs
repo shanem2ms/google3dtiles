@@ -30,6 +30,7 @@ namespace googletiles
 
         Tile root;
         EarthViz earthViz;
+        CameraView cameraView;
         public MainWindow()
         {
             this.DataContext = this;
@@ -47,9 +48,11 @@ namespace googletiles
                 GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty);
             sessionkey = rootTile.GetSession();
             root = new Tile(rootTile.root, 0);
+            cameraView = new CameraView();
             earthViz = new EarthViz(root);
             veldridRenderer.earthViz = earthViz;
-            var result = await root.DownloadChildren(sessionkey);
+            veldridRenderer.cameraView = cameraView;
+            var result = await root.DownloadChildren(sessionkey, cameraView);
             RefreshTiles();
             return true;
         }
@@ -70,21 +73,25 @@ namespace googletiles
         async Task<bool> ExpandTile(Tile t)
         {
             t.ToggleExpand();
-            await t.DownloadChildren(sessionkey);            
+            await t.DownloadChildren(sessionkey, cameraView);            
             RefreshTiles();
             return true;
         }
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            earthViz.OnKeyDown(e);
+            cameraView.OnKeyDown(e);
             base.OnKeyDown(e);
         }
 
         protected override void OnKeyUp(KeyEventArgs e)
         {
-            earthViz.OnKeyUp(e);
+            cameraView.OnKeyUp(e);
             base.OnKeyUp(e);
         }
 
+        private void SelectView_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }
