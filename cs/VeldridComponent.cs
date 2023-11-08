@@ -15,8 +15,10 @@ namespace googletiles
         private CommandList _cl;
         private GraphicsDevice _gd;
         public EarthViz earthViz = null;
+        public BoundsViz boundsViz = null;
         public CameraView cameraView = null;
         bool earthVizInitialized = false;
+        bool boundsVizInitialized = false;
         //TexturedCube tc = new TexturedCube();
         public bool Rendering { get; private set; }
 
@@ -112,6 +114,11 @@ namespace googletiles
                 earthViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
                 earthVizInitialized = true;
             }
+            if (boundsViz != null && !boundsVizInitialized)
+            {
+                boundsViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
+                boundsVizInitialized = true;
+            }
             _cl.Begin();
             _cl.SetFramebuffer(_sc.Framebuffer);
             Random r = new Random();
@@ -122,10 +129,13 @@ namespace googletiles
 
             if (earthViz != null)
                 earthViz.Draw(_cl, cameraView, 0.016f);
+            if (boundsViz != null)
+                boundsViz.Draw(_cl, cameraView, 0.016f);
 
             _cl.End();
             _gd.SubmitCommands(_cl);
             _gd.SwapBuffers(_sc);
         }
     }
+
 }

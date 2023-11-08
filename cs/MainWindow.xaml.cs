@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Net.Http;
+using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -30,6 +31,7 @@ namespace googletiles
 
         Tile root;
         EarthViz earthViz;
+        BoundsViz boundsViz;
         CameraView cameraView;
         public MainWindow()
         {
@@ -49,10 +51,13 @@ namespace googletiles
             sessionkey = rootTile.GetSession();
             root = new Tile(rootTile.root, 0);
             cameraView = new CameraView();
-            earthViz = new EarthViz(root);
+            //earthViz = new EarthViz(root);
+            boundsViz = new BoundsViz(root);
             veldridRenderer.earthViz = earthViz;
+            veldridRenderer.boundsViz = boundsViz;
             veldridRenderer.cameraView = cameraView;
-            var result = await root.DownloadChildren(sessionkey, cameraView);
+            Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
+            var result = await root.DownloadChildren(sessionkey, viewProj);
             RefreshTiles();
             return true;
         }
@@ -73,7 +78,8 @@ namespace googletiles
         async Task<bool> ExpandTile(Tile t)
         {
             t.ToggleExpand();
-            await t.DownloadChildren(sessionkey, cameraView);            
+            Matrix4x4 viewProj = cameraView.ProjMat * cameraView.ViewMat;
+            await t.DownloadChildren(sessionkey, viewProj);            
             RefreshTiles();
             return true;
         }
@@ -91,7 +97,15 @@ namespace googletiles
 
         private void SelectView_Click(object sender, RoutedEventArgs e)
         {
-
+            Matrix4x4 viewProj = cameraView.ProjMat * cameraView.ViewMat;
+            root.DownloadChildren(sessionkey, viewProj).ContinueWith(t =>
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    RefreshTiles();
+                });
+            });
+            
         }
     }
 }

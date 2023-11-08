@@ -10,37 +10,43 @@ using Veldrid;
 using Veldrid.SPIRV;
 using System.Windows;
 using System.Windows.Input;
-using System.Diagnostics;
 
 namespace googletiles
 {
-    public class EarthViz
+    public class BoundsViz
     {
         private readonly VertexPositionTexture[] _vertices;
-        private readonly uint[] _indices;
+        private readonly ushort[] _indices;
         private DeviceBuffer _projectionBuffer;
         private DeviceBuffer _viewBuffer;
-        private Pipeline _pipeline;
-        private ResourceSet _projViewSet;
+        private DeviceBuffer _worldBuffer;
         private DeviceBuffer _vertexBuffer;
         private DeviceBuffer _indexBuffer;
+        private Pipeline _pipeline;
+        private ResourceSet _projViewSet;
+        private ResourceSet _worldTextureSet;
+        private float _ticks;
 
         // 8000000
+        Vector3 invScale;
         Tile root;
-        public EarthViz(Tile rootTile)
+        public BoundsViz(Tile rootTile)
         {
             root = rootTile;
+            _vertices = GetCubeVertices();
+            _indices = GetCubeIndices();
         }
 
         public void CreateResources(GraphicsDevice gd, Swapchain sc, ResourceFactory factory)
         {
             _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
             _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            _worldBuffer = factory.CreateBuffer(new BufferDescription(64 + 16, BufferUsage.UniformBuffer));
 
             _vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(VertexPositionTexture.SizeInBytes * _vertices.Length), BufferUsage.VertexBuffer));
             gd.UpdateBuffer(_vertexBuffer, 0, _vertices);
 
-            _indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(uint) * (uint)_indices.Length, BufferUsage.IndexBuffer));
+            _indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(ushort) * (uint)_indices.Length, BufferUsage.IndexBuffer));
             gd.UpdateBuffer(_indexBuffer, 0, _indices);
 
 
@@ -62,14 +68,12 @@ namespace googletiles
 
             ResourceLayout worldTextureLayout = factory.CreateResourceLayout(
                 new ResourceLayoutDescription(
-                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                    new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
-                    new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
+                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.Back, PolygonFillMode.Wireframe, FrontFace.CounterClockwise, true, false);
+            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Wireframe, FrontFace.Clockwise, true, false);
             _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                 BlendStateDescription.SingleOverrideBlend,
-                DepthStencilStateDescription.DepthOnlyLessEqual,
+                DepthStencilStateDescription.Disabled,
                 description,
                 PrimitiveTopology.TriangleList,
                 shaderSet,
@@ -81,34 +85,49 @@ namespace googletiles
                 _projectionBuffer,
                 _viewBuffer));
 
+            _worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
+                worldTextureLayout,
+                _worldBuffer));
+
         }
 
-
-        void DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile)
+        bool DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile)
         {
             if (tile == null)
-                return;
+                return false;
 
-            if (tile.mesh != null)
-            {               
-                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
-                cl.SetVertexBuffer(0, tile.mesh._vertexBuffer);
-                cl.SetIndexBuffer(tile.mesh._indexBuffer, IndexFormat.UInt32);
-                cl.SetGraphicsResourceSet(0, _projViewSet);
-                cl.SetGraphicsResourceSet(1, tile.mesh._worldTextureSet);
-                cl.DrawIndexed((uint)tile.mesh.triangleCnt, 1, 0, 0, 0);
-            }        
+            bool childDrawn = false;
             if (tile.ChildTiles != null)
             {
                 foreach (Tile childTile in tile.ChildTiles)
-                { DrawTile(cl, ref viewMat, childTile); }
+                { childDrawn |= DrawTile(cl, ref viewMat, childTile); }
             }
+
+            if (!childDrawn && tile.GlbFile != null)
+            {
+                Matrix4x4 worldMat =
+                    Matrix4x4.CreateScale(tile.Scale * 2) *
+                    tile.RotMat *
+                    Matrix4x4.CreateTranslation(tile.Center);
+
+                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
+                cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
+                Vector4 color = new Vector4(1, 1, 0, 1);
+                cl.UpdateBuffer(_worldBuffer, 64, ref tile.Color);
+                cl.SetVertexBuffer(0, _vertexBuffer);
+                cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
+                cl.SetGraphicsResourceSet(0, _projViewSet);
+                cl.SetGraphicsResourceSet(1, _worldTextureSet);
+                cl.DrawIndexed(36, 1, 0, 0, 0);
+                return true;
+            }
+
+            return childDrawn;
         }
 
 
         public void Draw(CommandList cl, CameraView view, float deltaSeconds)
         {
-
             Matrix4x4 viewMat = view.ViewMat;
             Matrix4x4 projMat = view.ProjMat;
             cl.ClearColorTarget(0, RgbaFloat.Black);
@@ -157,9 +176,9 @@ namespace googletiles
             return vertices;
         }
 
-        private static uint[] GetCubeIndices()
+        private static ushort[] GetCubeIndices()
         {
-            uint[] indices =
+            ushort[] indices =
             {
                 0,1,2, 0,2,3,
                 4,5,6, 4,6,7,
@@ -171,7 +190,6 @@ namespace googletiles
 
             return indices;
         }
-
 
         private const string VertexCode = @"
 #version 450
@@ -189,11 +207,12 @@ layout(set = 0, binding = 1) uniform ViewBuffer
 layout(set = 1, binding = 0) uniform WorldBuffer
 {
     mat4 World;
+    vec4 Color;
 };
 
 layout(location = 0) in vec3 Position;
 layout(location = 1) in vec2 TexCoords;
-layout(location = 0) out vec2 fsin_texCoords;
+layout(location = 0) out vec4 fsin_Color;
 
 void main()
 {
@@ -201,23 +220,39 @@ void main()
     vec4 viewPosition = View * worldPosition;
     vec4 clipPosition = Projection * viewPosition;
     gl_Position = clipPosition;
-    fsin_texCoords = TexCoords;
+    fsin_Color = Color;
 }";
 
         private const string FragmentCode = @"
 #version 450
 
-layout(location = 0) in vec2 fsin_texCoords;
+layout(location = 0) in vec4 fsin_Color;
 layout(location = 0) out vec4 fsout_color;
-
-layout(set = 1, binding = 1) uniform texture2D SurfaceTexture;
-layout(set = 1, binding = 2) uniform sampler SurfaceSampler;
 
 void main()
 {
-    fsout_color =  texture(sampler2D(SurfaceTexture, SurfaceSampler), fsin_texCoords);
+    fsout_color =  fsin_Color;
 }";
     }
 
-   
+    public struct VertexPositionTexture
+    {
+        public const uint SizeInBytes = 20;
+
+        public float PosX;
+        public float PosY;
+        public float PosZ;
+
+        public float TexU;
+        public float TexV;
+
+        public VertexPositionTexture(Vector3 pos, Vector2 uv)
+        {
+            PosX = pos.X;
+            PosY = pos.Y;
+            PosZ = pos.Z;
+            TexU = uv.X;
+            TexV = uv.Y;
+        }
+    }
 }

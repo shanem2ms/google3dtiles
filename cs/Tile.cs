@@ -19,6 +19,7 @@ using System.Runtime.InteropServices;
 using System.Runtime;
 using Veldrid;
 using static System.Net.WebRequestMethods;
+using System.Security.Cryptography.X509Certificates;
 
 namespace googletiles
 {
@@ -32,6 +33,8 @@ namespace googletiles
         public Vector3 Rx => bounds.rot[0];
         public Vector3 Ry => bounds.rot[1];
         public Vector3 Rz => bounds.rot[2];
+
+        public Vector4 Color;
 
         public Matrix4x4 RotMat => bounds.rotMat;
         public float[] Transform { get; set; }
@@ -68,7 +71,8 @@ namespace googletiles
                 else if (node.content.uri.Contains(".glb"))
                     GlbFile = node.content.UriNoQuery();
             }
-            
+            Random r = new Random();
+            Color = new Vector4(r.NextSingle(), r.NextSingle(), r.NextSingle(), 1);
             level = l;
 
             if (node.children != null)
@@ -126,27 +130,34 @@ namespace googletiles
             return true;
         }
 
-        public async Task<bool> DownloadChildren(string sessionkey, CameraView view)
+        public async Task<bool> DownloadChildren(string sessionkey, Matrix4x4 viewProj)
         {
-            if (this.childrenDownloaded)
+            if (!bounds.IsInView(viewProj))
                 return false;
 
             List<Task<bool>> allTasks = new List<Task<bool>>();
-            if (GlbFile != null)
+            if (!this.childrenDownloaded)
             {
-                return await DownloadGlb(sessionkey);
-            }
+                if (GlbFile != null)
+                {
+                    allTasks.Add(DownloadGlb(sessionkey));
+                }
 
-            this.childrenDownloaded = true;
-            List<Tile> tiles = new List<Tile>();
-            if (ChildJson != null)
-            {
-                if (ChildTiles?.Length > 0)
-                    Debugger.Break();
-                GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
-                Tile t = new Tile(tile.root, level + 1);
-                tiles.Add(t);
-                ChildTiles = tiles.ToArray();
+                float span = bounds.GetScreenSpan(viewProj);
+
+                if (span < 1)
+                    return false;
+                this.childrenDownloaded = true;
+                List<Tile> tiles = new List<Tile>();
+                if (ChildJson != null)
+                {
+                    if (ChildTiles?.Length > 0)
+                        Debugger.Break();
+                    GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
+                    Tile t = new Tile(tile.root, level + 1);
+                    tiles.Add(t);
+                    ChildTiles = tiles.ToArray();
+                }
             }
             
             if (ChildTiles != null)
@@ -154,7 +165,7 @@ namespace googletiles
                 foreach (Tile tile in ChildTiles)
                 {
                     allTasks.Add(
-                        tile.DownloadChildren(sessionkey, view));
+                        tile.DownloadChildren(sessionkey, viewProj));
                 }
             }
             await Task.WhenAll(allTasks);
@@ -308,6 +319,42 @@ namespace googletiles
             }
         }
 
+        public float GetScreenSpan(Matrix4x4 viewProj)
+        {
+            Vector4 spt0 = Vector4.Transform(new Vector4(pts[0], 1), viewProj);
+            spt0 /= spt0.W;
+            Vector4 spt7 = Vector4.Transform(new Vector4(pts[7], 1), viewProj);
+            spt7 /= spt7.W;
+            return (new Vector3(spt7.X, spt7.Y, spt7.Z) - new Vector3(spt0.X, spt0.Y, spt0.Z)).LengthSquared();
+        }
+        public bool IsInView(Matrix4x4 viewProj)
+        {
+            int[] sides = new int[6];
+            for (int idx = 0; idx < pts.Length; ++idx)
+            {
+                Vector4 spt = Vector4.Transform(new Vector4(pts[idx], 1), viewProj);
+                spt /= spt.W;
+                if (spt.X < -1)
+                    sides[0]++;
+                else if (spt.X > 1)
+                    sides[1]++;
+                if (spt.Y < -1)
+                    sides[2]++;
+                else if (spt.Y > 1)
+                    sides[3]++;
+                if (spt.Z < 0)
+                    sides[4]++;
+                else if (spt.Z > 1)
+                    sides[5]++;
+            }
+            for (int i = 0; i < sides.Length; ++i)
+            { 
+                if (sides[i] == 6)
+                    return false;
+            }
+
+            return true;
+        }
         public bool Equals(Bounds? other)
         {
             return center == other?.center &&
