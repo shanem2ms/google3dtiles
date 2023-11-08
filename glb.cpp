@@ -122,37 +122,6 @@ extern "C" _declspec(dllexport) void FreeMesh(GltfModel *pmodel)
     delete pmodel;
 }
 
-int main(int argc, char *argv[])
-{
-    if (argc < 2)
-        return -1;
-    tinygltf::Model model;
-    tinygltf::TinyGLTF loader;
-    std::string err;
-    std::string warn;
-    bool success = loader.LoadBinaryFromFile(&model, &err, &warn, argv[1]);
-    draco::DecoderBuffer buffer;
-    buffer.Init(
-        (const char *)model.buffers[0].data.data(), model.buffers[0].data.size());
-    draco::Decoder decoder;
-    auto geom_type =
-            decoder.GetEncodedGeometryType(&buffer);
-    draco::Mesh mesh;
-    auto result = decoder.DecodeBufferToGeometry(&buffer, &mesh);
-    const draco::PointAttribute *posAttribute = mesh.GetNamedAttribute(draco::GeometryAttribute::Type::POSITION);
-    const draco::PointAttribute* uvAttribute = mesh.GetNamedAttribute(draco::GeometryAttribute::Type::TEX_COORD);
-    uint32_t numPts = mesh.num_points();
-    std::vector<pt3> points;
-    for (uint32_t ptIdx = 0; ptIdx < numPts; ++ptIdx)
-    {
-        pt3 pt;        
-        posAttribute->GetMappedValue(draco::PointIndex(ptIdx), &pt);
-        uvAttribute->GetMappedValue(draco::PointIndex(ptIdx), &pt.u);
-        points.push_back(pt);
-    }
-}
-
-
 static size_t ComponentTypeByteSize(int type) {
     switch (type) {
     case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
