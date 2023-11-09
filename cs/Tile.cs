@@ -20,6 +20,7 @@ using System.Runtime;
 using Veldrid;
 using static System.Net.WebRequestMethods;
 using System.Security.Cryptography.X509Certificates;
+using Vortice.DXGI;
 
 namespace googletiles
 {
@@ -27,6 +28,7 @@ namespace googletiles
     {
 
         Bounds bounds;
+        public Bounds Bounds => bounds;
         public GlbMesh mesh;
         public Vector3 Center => bounds.center;
         public Vector3 Scale => bounds.scale;
@@ -117,12 +119,12 @@ namespace googletiles
             if (ChildTiles == null)
                 return;
 
-            foreach (Tile tile in ChildTiles) 
+            foreach (Tile tile in ChildTiles)
             {
                 tile.CollapseSameTiles();
             }
         }
-        
+
         public async Task<bool> DownloadGlb(string sessionkey)
         {
             Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
@@ -145,7 +147,7 @@ namespace googletiles
 
                 float span = bounds.GetScreenSpan(viewProj);
 
-                if (span < 1)
+                if (span < 5)
                     return false;
                 this.childrenDownloaded = true;
                 List<Tile> tiles = new List<Tile>();
@@ -159,7 +161,7 @@ namespace googletiles
                     ChildTiles = tiles.ToArray();
                 }
             }
-            
+
             if (ChildTiles != null)
             {
                 foreach (Tile tile in ChildTiles)
@@ -171,7 +173,7 @@ namespace googletiles
             await Task.WhenAll(allTasks);
             return true;
         }
-        
+
     }
 
     public class GlbMesh
@@ -242,7 +244,7 @@ namespace googletiles
                 Marshal.FreeHGlobal(ptranslate);
             }
             {
-                imageBuf = Marshal.AllocHGlobal(256*256*4);
+                imageBuf = Marshal.AllocHGlobal(256 * 256 * 4);
                 bool success = GetTexture(meshptr, imageBuf, 256 * 256 * 4);
             }
             FreeMesh(meshptr);
@@ -272,7 +274,7 @@ namespace googletiles
                                 new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                                 new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
                                 new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
-            
+
 
             _worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
                 worldTextureLayout,
@@ -282,20 +284,77 @@ namespace googletiles
 
         }
     }
+
+    public class Quad
+    {
+        Vector3[] pts;
+        Vector3 u;
+        Vector3 v;
+        float du;
+        float dv;
+        Vector3 nrm;
+        Vector3 center;
+        public Quad(Vector3[] _pts )
+        {
+            pts = _pts;
+            center = (pts[0] + pts[1] + pts[2] + pts[3]) * 0.25f;
+            u = Vector3.Normalize(pts[2] - pts[1]);
+            du = MathF.Abs(Vector3.Dot(pts[2] - center, u));
+            v = Vector3.Normalize(pts[1] - pts[0]);
+            dv = MathF.Abs(Vector3.Dot(pts[1] - center, v));
+            nrm = Vector3.Cross(u, v);
+            nrm = Vector3.Normalize(nrm);
+        }
+
+        public bool Intersect(Vector3 l0, Vector3 l, out float t)
+        {
+            // assuming vectors are all normalized
+            float denom = Vector3.Dot(nrm, l);
+            if (denom < 1e-6)
+            {
+                t = float.MaxValue;
+                return false;
+            }
+
+            Vector3 p0l0 = center - l0;
+            t = Vector3.Dot(p0l0, nrm) / denom;
+            if (t < 0)
+                return false;
+
+            Vector3 ipt = l0 + l * t;
+            float ddu = Vector3.Dot(ipt - center, u);
+            float ddv = Vector3.Dot(ipt - center, v);
+            if (MathF.Abs(ddu) < du && MathF.Abs(ddv) < dv)
+                return true;
+            return false;
+        }
+    }
+
     public class Bounds : IEquatable<Bounds>
     {
         public Vector3 center;
         public Vector3 scale;
         public Vector3[] rot;
         public Matrix4x4 rotMat;
+        public Matrix4x4 worldMat;
         public Vector3[] pts;
+        public Quad[] quads;
+
+        static int[][] PlaneIndices ={
+            new int[]{ 0,1,3,2},
+            new int[]{ 5,4,6,7},
+            new int[]{ 0,2,6,4},
+            new int[]{ 1,5,7,3},
+            new int[]{ 0,4,5,1},
+            new int[]{ 2,3,7,6}
+        };
         public Bounds(GoogleTile.BoundingVolume bv)
         {
             center = new Vector3(bv.box[0], bv.box[1], bv.box[2]);
             scale = new Vector3();
             rot = new Vector3[3];
             rotMat = Matrix4x4.Identity;
-            Vector3[] scaledvecs = new Vector3[3]; 
+            Vector3[] scaledvecs = new Vector3[3];
             for (int i = 0; i < 3; ++i)
             {
                 Vector3 vx = new Vector3(bv.box[3 + i * 3], bv.box[3 + i * 3 + 1], bv.box[3 + i * 3 + 2]);
@@ -306,19 +365,50 @@ namespace googletiles
                 rotMat[i, 2] = rot[i].Z;
             }
             pts = new Vector3[8];
-            Matrix4x4 worldMat =
-                    Matrix4x4.CreateScale(scale) *
+
+            worldMat =
+                    Matrix4x4.CreateScale(scale * 2) *
                     rotMat *
                     Matrix4x4.CreateTranslation(center);
+
             for (int i = 0; i < 8; ++i)
             {
-                Vector3 pt = new Vector3((i & 1) != 0 ? -1 : 1,
-                                ((i >> 1) & 1) != 0 ? -1 : 1,
-                                ((i >> 2) & 1) != 0 ? -1 : 1);
+                Vector3 pt = new Vector3((i & 1) != 0 ? -0.5f : 0.5f,
+                                ((i >> 1) & 1) != 0 ? -0.5f : 0.5f,
+                                ((i >> 2) & 1) != 0 ? -0.5f : 0.5f);
                 pts[i] = Vector3.Transform(pt, worldMat);
+            }
+
+            quads = new Quad[6];
+            for (int idx = 0; idx < 6; ++idx)
+            {
+                Vector3[] vpts = new Vector3[4];
+                for (int vidx = 0; vidx < 4; ++vidx)
+                {
+                    vpts[vidx] = pts[PlaneIndices[idx][vidx]];
+                }
+                quads[idx] = new Quad(vpts);
             }
         }
 
+        public bool Intersect(Vector3 l0, Vector3 l, out float t)
+        {
+            float mint = float.MaxValue;
+            bool foundinteresection = false;
+            
+            for (int i = 0; i < quads.Length; ++i)
+            {
+                float tt;
+                if (quads[i].Intersect(l0, l, out tt) && tt > 0)
+                {
+                    Vector3 intersectPt = l0 + l * tt;
+                    mint = Math.Min(tt, mint);
+                    foundinteresection = true;
+                }
+            }
+            t = mint;
+            return foundinteresection;
+        }
         public float GetScreenSpan(Matrix4x4 viewProj)
         {
             Vector4 spt0 = Vector4.Transform(new Vector4(pts[0], 1), viewProj);
@@ -348,8 +438,8 @@ namespace googletiles
                     sides[5]++;
             }
             for (int i = 0; i < sides.Length; ++i)
-            { 
-                if (sides[i] == 6)
+            {
+                if (sides[i] == 8)
                     return false;
             }
 

@@ -91,29 +91,33 @@ namespace googletiles
 
         }
 
-        bool DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile)
+        bool DrawTile(CommandList cl, ref Matrix4x4 viewMat, ref Matrix4x4 projMat, Vector3 pos, Vector3 dir, Tile tile)
         {
             if (tile == null)
+                return false;
+
+            if (!tile.Bounds.IsInView(viewMat * projMat))
                 return false;
 
             bool childDrawn = false;
             if (tile.ChildTiles != null)
             {
                 foreach (Tile childTile in tile.ChildTiles)
-                { childDrawn |= DrawTile(cl, ref viewMat, childTile); }
+                { childDrawn |= DrawTile(cl, ref viewMat, ref projMat, pos, dir, childTile); }
             }
 
+            float t;
+            bool foundIntersection = tile.Bounds.Intersect(pos, dir, out t);
+
             if (!childDrawn && tile.GlbFile != null)
-            {
-                Matrix4x4 worldMat =
-                    Matrix4x4.CreateScale(tile.Scale * 2) *
-                    tile.RotMat *
-                    Matrix4x4.CreateTranslation(tile.Center);
+            {                
+                float screenSpan = tile.Bounds.GetScreenSpan(viewMat * projMat) * 0.1f;
 
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
-                cl.UpdateBuffer(_worldBuffer, 0, ref worldMat);
-                Vector4 color = new Vector4(1, 1, 0, 1);
-                cl.UpdateBuffer(_worldBuffer, 64, ref tile.Color);
+                cl.UpdateBuffer(_worldBuffer, 0, ref tile.Bounds.worldMat);
+
+                Vector4 color = new Vector4(foundIntersection ? 1 : 0,0, 1, 1);
+                cl.UpdateBuffer(_worldBuffer, 64, ref color);
                 cl.SetVertexBuffer(0, _vertexBuffer);
                 cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
                 cl.SetGraphicsResourceSet(0, _projViewSet);
@@ -130,11 +134,12 @@ namespace googletiles
         {
             Matrix4x4 viewMat = view.ViewMat;
             Matrix4x4 projMat = view.ProjMat;
+             
             cl.ClearColorTarget(0, RgbaFloat.Black);
             cl.ClearDepthStencil(1f);
             cl.SetPipeline(_pipeline);
             cl.UpdateBuffer(_projectionBuffer, 0, ref projMat);
-            DrawTile(cl, ref viewMat, root);
+            DrawTile(cl, ref viewMat, ref projMat, view.Pos, view.LookDir, root);
         }
 
         private static VertexPositionTexture[] GetCubeVertices()

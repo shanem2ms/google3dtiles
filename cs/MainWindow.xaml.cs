@@ -97,7 +97,7 @@ namespace googletiles
 
         private void SelectView_Click(object sender, RoutedEventArgs e)
         {
-            Matrix4x4 viewProj = cameraView.ProjMat * cameraView.ViewMat;
+            Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
             root.DownloadChildren(sessionkey, viewProj).ContinueWith(t =>
             {
                 Dispatcher.BeginInvoke(() =>

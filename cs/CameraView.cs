@@ -94,6 +94,9 @@ namespace googletiles
 
         }
 
+        public Vector3 LookDir => -Vector3.Transform(Vector3.UnitZ, camRot);
+        public Vector3 Pos => camPos;
+
         public void Update()
         {
             camPos += wsMotion;
