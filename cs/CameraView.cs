@@ -13,10 +13,10 @@ namespace googletiles
     {
         Point mouseDownPt;
         bool mouseDown = false;
-        Quaternion camRot = Quaternion.Identity;
+        Quaternion camRot = new Quaternion(-0.023609221f, 0.46456802f, 0.012391418f, 0.8851359f);
         Quaternion camRotMouseDown;
         static float scale = 8000000.0f;
-        Vector3 camPos = new Vector3(0, 0, 2 * scale);
+        Vector3 camPos = new Vector3(6293211, 159773.1f, 1549424.5f);
         Vector3 wsMotion;
         Vector3 adMotion;
         Vector3 eqMotion;
@@ -44,37 +44,38 @@ namespace googletiles
         }
 
         float speed = 0.01f * scale;
+        float Speed => LookAtDist * 0.01f;
         public void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.W)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
-                wsMotion = -dir * speed;
+                wsMotion = -dir * Speed;
             }
             else if (e.Key == Key.S)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
-                wsMotion = dir * speed;
+                wsMotion = dir * Speed;
             }
             else if (e.Key == Key.A)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
-                adMotion = -dir * speed;
+                adMotion = -dir * Speed;
             }
             else if (e.Key == Key.D)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
-                adMotion = dir * speed;
+                adMotion = dir * Speed;
             }
             else if (e.Key == Key.E)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
-                eqMotion = dir * speed;
+                eqMotion = dir * Speed;
             }
             else if (e.Key == Key.Q)
             {
                 Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
-                eqMotion = -dir * speed;
+                eqMotion = -dir * Speed;
             }
         }
         public void OnKeyUp(KeyEventArgs e)
@@ -94,6 +95,8 @@ namespace googletiles
 
         }
 
+
+        public float LookAtDist { get; set; } = float.PositiveInfinity;
         public Vector3 LookDir => -Vector3.Transform(Vector3.UnitZ, camRot);
         public Vector3 Pos => camPos;
 
@@ -111,8 +114,8 @@ namespace googletiles
                 return Matrix4x4.CreatePerspectiveFieldOfView(
                     1.0f,
                     1.0f,
-                    0.05f * scale,
-                    10f * scale);
+                    0.05f * Math.Min(LookAtDist, scale),
+                    10f * Math.Min(LookAtDist, scale));
             }
         }
         public Matrix4x4 ViewMat { get

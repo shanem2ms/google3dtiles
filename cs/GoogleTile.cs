@@ -101,7 +101,7 @@ namespace googletiles
             string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
             var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
             string responseJson = await response.Content.ReadAsStringAsync();
-            File.WriteAllText(Path.GetFileName(url), responseJson);
+            //File.WriteAllText(Path.GetFileName(url), responseJson);
             GoogleTile tile = JsonSerializer.Deserialize<GoogleTile>(responseJson);
             return tile;
         }

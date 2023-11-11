@@ -17,6 +17,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Veldrid;
 
 namespace googletiles
 {
@@ -33,6 +34,9 @@ namespace googletiles
         EarthViz earthViz;
         BoundsViz boundsViz;
         CameraView cameraView;
+        bool earthVizInitialized = false;
+        bool boundsVizInitialized = false;
+
         public MainWindow()
         {
             this.DataContext = this;
@@ -53,15 +57,43 @@ namespace googletiles
             cameraView = new CameraView();
             //earthViz = new EarthViz(root);
             boundsViz = new BoundsViz(root);
-            veldridRenderer.earthViz = earthViz;
-            veldridRenderer.boundsViz = boundsViz;
             veldridRenderer.cameraView = cameraView;
+            veldridRenderer.OnRender = OnRender;
             Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
             var result = await root.DownloadChildren(sessionkey, viewProj);
             RefreshTiles();
             return true;
         }
 
+        void OnRender(CommandList _cl, GraphicsDevice _gd, Swapchain _sc)
+        {
+            cameraView?.Update();
+            Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
+            root.DownloadChildren(sessionkey, viewProj);
+            float t;
+            root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t);
+
+            if (!float.IsInfinity(t)) { 
+                cameraView.LookAtDist = t;
+            }
+
+            if (earthViz != null && !earthVizInitialized)
+            {
+                earthViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
+                earthVizInitialized = true;
+            }
+            if (boundsViz != null && !boundsVizInitialized)
+            {
+                boundsViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
+                boundsVizInitialized = true;
+            }
+
+            if (earthViz != null)
+                earthViz.Draw(_cl, cameraView, 0.016f);
+            if (boundsViz != null)
+                boundsViz.Draw(_cl, cameraView, 0.016f);
+
+        }
         void RefreshTiles()
         {
             Tiles = new List<Tile>();

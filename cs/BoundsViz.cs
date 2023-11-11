@@ -25,7 +25,6 @@ namespace googletiles
         private Pipeline _pipeline;
         private ResourceSet _projViewSet;
         private ResourceSet _worldTextureSet;
-        private float _ticks;
 
         // 8000000
         Vector3 invScale;
@@ -99,17 +98,19 @@ namespace googletiles
             if (!tile.Bounds.IsInView(viewMat * projMat))
                 return false;
 
-            bool childDrawn = false;
+            int childDrawnCount = 0;
             if (tile.ChildTiles != null)
             {
                 foreach (Tile childTile in tile.ChildTiles)
-                { childDrawn |= DrawTile(cl, ref viewMat, ref projMat, pos, dir, childTile); }
+                { childDrawnCount += DrawTile(cl, ref viewMat, ref projMat, pos, dir, childTile) ? 1: 0; }
             }
 
+            if (tile.ChildTiles != null && childDrawnCount == tile.ChildTiles.Length)
+                return true;
             float t;
             bool foundIntersection = tile.Bounds.Intersect(pos, dir, out t);
 
-            if (!childDrawn && tile.GlbFile != null)
+            if (tile.GlbFile != null)
             {                
                 float screenSpan = tile.Bounds.GetScreenSpan(viewMat * projMat) * 0.1f;
 
@@ -126,7 +127,7 @@ namespace googletiles
                 return true;
             }
 
-            return childDrawn;
+            return false;
         }
 
 

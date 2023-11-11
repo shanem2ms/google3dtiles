@@ -137,18 +137,19 @@ namespace googletiles
             if (!bounds.IsInView(viewProj))
                 return false;
 
+            float span = bounds.GetScreenSpan(viewProj);
+
+            if (span < 5)
+                return false;
+
             List<Task<bool>> allTasks = new List<Task<bool>>();
             if (!this.childrenDownloaded)
             {
-                if (GlbFile != null)
+                if (GlbFile != null && mesh == null)
                 {
-                    allTasks.Add(DownloadGlb(sessionkey));
+                    //allTasks.Add(DownloadGlb(sessionkey));
                 }
 
-                float span = bounds.GetScreenSpan(viewProj);
-
-                if (span < 5)
-                    return false;
                 this.childrenDownloaded = true;
                 List<Tile> tiles = new List<Tile>();
                 if (ChildJson != null)
@@ -174,6 +175,29 @@ namespace googletiles
             return true;
         }
 
+        public bool FindIntersection(Vector3 pos, Vector3 dir, out float ot)
+        {
+            float t = float.PositiveInfinity;
+            bool childDrawn = false;
+            if (ChildTiles != null)
+            {
+                foreach (Tile childTile in ChildTiles)
+                {
+                    childDrawn |= childTile.FindIntersection(pos, dir, out float tt);
+                    t = Math.Min(tt, t);
+                }
+            }
+
+            if (!childDrawn && GlbFile != null 
+                    && Bounds.Intersect(pos, dir, out float _t))
+            {
+                t = Math.Min(t, _t);
+            }
+
+            ot = t;
+
+            return GlbFile != null || childDrawn;
+        }
     }
 
     public class GlbMesh
@@ -415,7 +439,9 @@ namespace googletiles
             spt0 /= spt0.W;
             Vector4 spt7 = Vector4.Transform(new Vector4(pts[7], 1), viewProj);
             spt7 /= spt7.W;
-            return (new Vector3(spt7.X, spt7.Y, spt7.Z) - new Vector3(spt0.X, spt0.Y, spt0.Z)).LengthSquared();
+            if (spt0.Z < 0 || spt7.Z < 0)
+                return 0;
+            return (new Vector2(spt7.X, spt7.Y) - new Vector2(spt0.X, spt0.Y)).LengthSquared();
         }
         public bool IsInView(Matrix4x4 viewProj)
         {

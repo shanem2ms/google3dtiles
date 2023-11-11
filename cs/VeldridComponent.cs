@@ -14,13 +14,12 @@ namespace googletiles
         private Swapchain _sc;
         private CommandList _cl;
         private GraphicsDevice _gd;
-        public EarthViz earthViz = null;
-        public BoundsViz boundsViz = null;
         public CameraView cameraView = null;
-        bool earthVizInitialized = false;
-        bool boundsVizInitialized = false;
         //TexturedCube tc = new TexturedCube();
         public bool Rendering { get; private set; }
+
+        public delegate void OnRenderDel(CommandList cl, GraphicsDevice gd, Swapchain sc);
+        public OnRenderDel OnRender;
 
         public static GraphicsDevice Graphics;
         protected override sealed void Initialize()
@@ -108,29 +107,17 @@ namespace googletiles
 
         protected virtual void Render()
         {
-            cameraView?.Update();
-            if (earthViz != null && !earthVizInitialized)
-            {
-                earthViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
-                earthVizInitialized = true;
-            }
-            if (boundsViz != null && !boundsVizInitialized)
-            {
-                boundsViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
-                boundsVizInitialized = true;
-            }
             _cl.Begin();
             _cl.SetFramebuffer(_sc.Framebuffer);
-            Random r = new Random();
             _cl.ClearColorTarget(
                 0,
                 new RgbaFloat(0, 0, 0, 1));
             _cl.ClearDepthStencil(1);
 
-            if (earthViz != null)
-                earthViz.Draw(_cl, cameraView, 0.016f);
-            if (boundsViz != null)
-                boundsViz.Draw(_cl, cameraView, 0.016f);
+            if (OnRender != null)
+            {
+                OnRender(_cl, _gd, _sc);
+            }
 
             _cl.End();
             _gd.SubmitCommands(_cl);

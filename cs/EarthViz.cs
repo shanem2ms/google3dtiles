@@ -16,14 +16,10 @@ namespace googletiles
 {
     public class EarthViz
     {
-        private readonly VertexPositionTexture[] _vertices;
-        private readonly uint[] _indices;
         private DeviceBuffer _projectionBuffer;
         private DeviceBuffer _viewBuffer;
         private Pipeline _pipeline;
         private ResourceSet _projViewSet;
-        private DeviceBuffer _vertexBuffer;
-        private DeviceBuffer _indexBuffer;
 
         // 8000000
         Tile root;
@@ -36,12 +32,6 @@ namespace googletiles
         {
             _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
             _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-
-            _vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(VertexPositionTexture.SizeInBytes * _vertices.Length), BufferUsage.VertexBuffer));
-            gd.UpdateBuffer(_vertexBuffer, 0, _vertices);
-
-            _indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(uint) * (uint)_indices.Length, BufferUsage.IndexBuffer));
-            gd.UpdateBuffer(_indexBuffer, 0, _indices);
 
 
             ShaderSetDescription shaderSet = new ShaderSetDescription(
