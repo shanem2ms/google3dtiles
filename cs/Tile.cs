@@ -27,6 +27,7 @@ namespace googletiles
     public class Tile : INotifyPropertyChanged
     {
 
+        public Tile Parent;
         Bounds bounds;
         public Bounds Bounds => bounds;
         public GlbMesh mesh;
@@ -48,6 +49,9 @@ namespace googletiles
 
         public bool IsExpanded { get; set; } = false;
 
+        public bool IsInView { get; set; } = false;
+        public int LastVisitedFrame { get; set; } = 0;
+
         public event PropertyChangedEventHandler? PropertyChanged;
         static int tileCount = 0;
         int tileIdx = 0;
@@ -61,8 +65,9 @@ namespace googletiles
             IsExpanded = !IsExpanded;
         }
         public string Name => $"tile{tileIdx}";
-        public Tile(GoogleTile.Node node, int l)
+        public Tile(GoogleTile.Node node, Tile parent)
         {
+            Parent = parent;
             bounds = new Bounds(node.boundingVolume);
             tileIdx = tileCount++;
             Transform = node.transform;
@@ -75,17 +80,28 @@ namespace googletiles
             }
             Random r = new Random();
             Color = new Vector4(r.NextSingle(), r.NextSingle(), r.NextSingle(), 1);
-            level = l;
+            level = parent != null ? parent.level + 1 : 0;
 
             if (node.children != null)
             {
                 List<Tile> tiles = new List<Tile>();
                 foreach (GoogleTile.Node n in node.children)
                 {
-                    Tile tile = new Tile(n, level + 1);
+                    Tile tile = new Tile(n, this);
                     tiles.Add(tile);
                 }
                 ChildTiles = tiles.ToArray();
+            }
+        }
+
+        public void CollapseAll()
+        {
+            IsExpanded = false;
+            if (ChildTiles == null)
+                return;
+            foreach (Tile childTile in ChildTiles)
+            {
+                childTile.CollapseAll();
             }
         }
 
@@ -132,9 +148,11 @@ namespace googletiles
             return true;
         }
 
-        public async Task<bool> DownloadChildren(string sessionkey, Matrix4x4 viewProj)
+        public async Task<bool> DownloadChildren(string sessionkey, Matrix4x4 viewProj, int frameIdx)
         {
-            if (!bounds.IsInView(viewProj))
+            LastVisitedFrame = frameIdx;
+            IsInView = bounds.IsInView(viewProj);
+            if (!IsInView)
                 return false;
 
             float span = bounds.GetScreenSpan(viewProj);
@@ -157,7 +175,7 @@ namespace googletiles
                     if (ChildTiles?.Length > 0)
                         Debugger.Break();
                     GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
-                    Tile t = new Tile(tile.root, level + 1);
+                    Tile t = new Tile(tile.root, this);
                     tiles.Add(t);
                     ChildTiles = tiles.ToArray();
                 }
@@ -168,30 +186,39 @@ namespace googletiles
                 foreach (Tile tile in ChildTiles)
                 {
                     allTasks.Add(
-                        tile.DownloadChildren(sessionkey, viewProj));
+                        tile.DownloadChildren(sessionkey, viewProj, frameIdx));
                 }
             }
             await Task.WhenAll(allTasks);
             return true;
         }
 
-        public bool FindIntersection(Vector3 pos, Vector3 dir, out float ot)
+        public bool FindIntersection(Vector3 pos, Vector3 dir, out float ot, out Tile outTile)
         {
+            outTile = null;
             float t = float.PositiveInfinity;
             bool childDrawn = false;
             if (ChildTiles != null)
             {
                 foreach (Tile childTile in ChildTiles)
                 {
-                    childDrawn |= childTile.FindIntersection(pos, dir, out float tt);
-                    t = Math.Min(tt, t);
+                    childDrawn |= childTile.FindIntersection(pos, dir, out float tt, out Tile intersectedTile);
+                    if (tt < t)
+                    {
+                        outTile = intersectedTile;
+                        t = tt;
+                    }
                 }
             }
 
             if (!childDrawn && GlbFile != null 
                     && Bounds.Intersect(pos, dir, out float _t))
             {
-                t = Math.Min(t, _t);
+                if (_t < t)
+                {
+                    t = _t;
+                    outTile = this;
+                }
             }
 
             ot = t;
@@ -356,6 +383,7 @@ namespace googletiles
 
     public class Bounds : IEquatable<Bounds>
     {
+        static Vector3 GlobalScale = new Vector3(7972671, 7972671, 7945940.5f);
         public Vector3 center;
         public Vector3 scale;
         public Vector3[] rot;
@@ -363,6 +391,7 @@ namespace googletiles
         public Matrix4x4 worldMat;
         public Vector3[] pts;
         public Quad[] quads;
+        bool IsGlobal => scale == GlobalScale;
 
         static int[][] PlaneIndices ={
             new int[]{ 0,1,3,2},
@@ -445,6 +474,8 @@ namespace googletiles
         }
         public bool IsInView(Matrix4x4 viewProj)
         {
+            if (IsGlobal)
+                return true;
             int[] sides = new int[6];
             for (int idx = 0; idx < pts.Length; ++idx)
             {

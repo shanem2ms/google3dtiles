@@ -33,10 +33,14 @@ namespace googletiles
         Tile root;
         EarthViz earthViz;
         BoundsViz boundsViz;
+        FrustumViz frustumViz;
         CameraView cameraView;
         bool earthVizInitialized = false;
         bool boundsVizInitialized = false;
+        bool frustumVizInitialized = false;
+        Tile intersectedTile = null;
 
+        public bool DownloadEnabled { get; set; } = true;
         public MainWindow()
         {
             this.DataContext = this;
@@ -53,25 +57,32 @@ namespace googletiles
             GoogleTile rootTile = await
                 GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty);
             sessionkey = rootTile.GetSession();
-            root = new Tile(rootTile.root, 0);
+            root = new Tile(rootTile.root, null);
             cameraView = new CameraView();
             //earthViz = new EarthViz(root);
             boundsViz = new BoundsViz(root);
+            frustumViz = new FrustumViz();
             veldridRenderer.cameraView = cameraView;
             veldridRenderer.OnRender = OnRender;
             Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
-            var result = await root.DownloadChildren(sessionkey, viewProj);
+            var result = await root.DownloadChildren(sessionkey, viewProj, 0);
             RefreshTiles();
             return true;
         }
 
+        int frameIdx = 1;
         void OnRender(CommandList _cl, GraphicsDevice _gd, Swapchain _sc)
         {
             cameraView?.Update();
             Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
-            root.DownloadChildren(sessionkey, viewProj);
+            if (DownloadEnabled)
+            {
+                root.DownloadChildren(sessionkey, viewProj, frameIdx);
+                frameIdx++;
+            }
             float t;
-            root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t);
+            root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t, out Tile _intersectedTile);
+            this.intersectedTile = _intersectedTile;
 
             if (!float.IsInfinity(t)) { 
                 cameraView.LookAtDist = t;
@@ -88,10 +99,17 @@ namespace googletiles
                 boundsVizInitialized = true;
             }
 
+            if (frustumViz != null && !frustumVizInitialized)
+            {
+                frustumViz.CreateResources(_gd, _sc, _gd.ResourceFactory);
+                frustumVizInitialized = true;
+            }
             if (earthViz != null)
-                earthViz.Draw(_cl, cameraView, 0.016f);
+                earthViz.Draw(_cl, cameraView);
             if (boundsViz != null)
-                boundsViz.Draw(_cl, cameraView, 0.016f);
+                boundsViz.Draw(_cl, cameraView, frameIdx);
+            if (frustumViz != null)
+                frustumViz.Draw(_cl, cameraView);
 
         }
         void RefreshTiles()
@@ -110,8 +128,8 @@ namespace googletiles
         async Task<bool> ExpandTile(Tile t)
         {
             t.ToggleExpand();
-            Matrix4x4 viewProj = cameraView.ProjMat * cameraView.ViewMat;
-            await t.DownloadChildren(sessionkey, viewProj);            
+            //Matrix4x4 viewProj = cameraView.ProjMat * cameraView.ViewMat;
+            //await t.DownloadChildren(sessionkey, viewProj, frameIdx);            
             RefreshTiles();
             return true;
         }
@@ -129,15 +147,14 @@ namespace googletiles
 
         private void SelectView_Click(object sender, RoutedEventArgs e)
         {
-            Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
-            root.DownloadChildren(sessionkey, viewProj).ContinueWith(t =>
+            root.CollapseAll();
+            Tile p = intersectedTile;
+            while(p != null)
             {
-                Dispatcher.BeginInvoke(() =>
-                {
-                    RefreshTiles();
-                });
-            });
-            
+                p.IsExpanded = true;
+                p = p.Parent;
+            }
+            RefreshTiles();
         }
     }
 }

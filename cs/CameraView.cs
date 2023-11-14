@@ -20,10 +20,17 @@ namespace googletiles
         Vector3 wsMotion;
         Vector3 adMotion;
         Vector3 eqMotion;
+        Quaternion dbgCamRot = Quaternion.Identity;
+        Vector3 dbgCamPos = new Vector3(0, 0, scale);
+        public bool DebugMode = false;
+        bool dbgInput = false;
+
+        Quaternion CamRot { get => dbgInput ? dbgCamRot : camRot; set { if (dbgInput) dbgCamRot = value; else camRot = value; }  }
+        Vector3 CamPos { get => dbgInput ? dbgCamPos : camPos; set { if (dbgInput) dbgCamPos = value; else camPos = value; } }
         public void OnMouseDown(MouseButtonEventArgs e, Point point)
         {
             mouseDownPt = point;
-            camRotMouseDown = camRot;
+            camRotMouseDown = CamRot;
             mouseDown = true;
         }
 
@@ -34,7 +41,7 @@ namespace googletiles
             {
                 double xdiff = point.X - mouseDownPt.X;
                 double ydiff = point.Y - mouseDownPt.Y;
-                camRot = camRotMouseDown * Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)-xdiff * rotSpeed) *
+                CamRot = camRotMouseDown * Quaternion.CreateFromAxisAngle(Vector3.UnitY, (float)-xdiff * rotSpeed) *
                     Quaternion.CreateFromAxisAngle(Vector3.UnitX, (float)-ydiff * rotSpeed);
             }
         }
@@ -44,38 +51,46 @@ namespace googletiles
         }
 
         float speed = 0.01f * scale;
-        float Speed => LookAtDist * 0.01f;
+        float Speed => (dbgInput ? scale : LookAtDist) * 0.01f;
         public void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.W)
             {
-                Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
+                Vector3 dir = Vector3.Transform(Vector3.UnitZ, CamRot);
                 wsMotion = -dir * Speed;
             }
             else if (e.Key == Key.S)
             {
-                Vector3 dir = Vector3.Transform(Vector3.UnitZ, camRot);
+                Vector3 dir = Vector3.Transform(Vector3.UnitZ, CamRot);
                 wsMotion = dir * Speed;
             }
             else if (e.Key == Key.A)
             {
-                Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
+                Vector3 dir = Vector3.Transform(Vector3.UnitX, CamRot);
                 adMotion = -dir * Speed;
             }
             else if (e.Key == Key.D)
             {
-                Vector3 dir = Vector3.Transform(Vector3.UnitX, camRot);
+                Vector3 dir = Vector3.Transform(Vector3.UnitX, CamRot);
                 adMotion = dir * Speed;
             }
             else if (e.Key == Key.E)
             {
-                Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
+                Vector3 dir = Vector3.Transform(Vector3.UnitY, CamRot);
                 eqMotion = dir * Speed;
             }
             else if (e.Key == Key.Q)
             {
-                Vector3 dir = Vector3.Transform(Vector3.UnitY, camRot);
+                Vector3 dir = Vector3.Transform(Vector3.UnitY, CamRot);
                 eqMotion = -dir * Speed;
+            }
+            else if (e.Key == Key.G)
+            {
+                DebugMode = !DebugMode;
+            }
+            else if (e.Key == Key.F)
+            {
+                dbgInput = !dbgInput;
             }
         }
         public void OnKeyUp(KeyEventArgs e)
@@ -102,9 +117,32 @@ namespace googletiles
 
         public void Update()
         {
-            camPos += wsMotion;
-            camPos += adMotion;
-            camPos += eqMotion;
+            CamPos += wsMotion;
+            CamPos += adMotion;
+            CamPos += eqMotion;
+        }
+
+        public Matrix4x4 DbgProjMat
+        {
+            get
+            {
+                return Matrix4x4.CreatePerspectiveFieldOfView(
+                    1.0f,
+                    1.0f,
+                    0.05f * scale,
+                    10f * scale);
+            }
+        }
+        public Matrix4x4 DbgViewMat
+        {
+            get
+            {
+                Matrix4x4 viewMat =
+                        Matrix4x4.CreateFromQuaternion(dbgCamRot) *
+                        Matrix4x4.CreateTranslation(dbgCamPos);
+                Matrix4x4.Invert(viewMat, out viewMat);
+                return viewMat;
+            }
         }
 
         public Matrix4x4 ProjMat

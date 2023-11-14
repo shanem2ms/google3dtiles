@@ -13,7 +13,7 @@ using System.Windows.Input;
 
 namespace googletiles
 {
-    public class BoundsViz
+    public class FrustumViz
     {
         private readonly VertexPositionTexture[] _vertices;
         private readonly ushort[] _indices;
@@ -26,12 +26,8 @@ namespace googletiles
         private ResourceSet _projViewSet;
         private ResourceSet _worldTextureSet;
 
-        // 8000000
-        Vector3 invScale;
-        Tile root;
-        public BoundsViz(Tile rootTile)
+        public FrustumViz()
         {
-            root = rootTile;
             _vertices = GetCubeVertices();
             _indices = GetCubeIndices();
         }
@@ -69,7 +65,7 @@ namespace googletiles
                 new ResourceLayoutDescription(
                     new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Wireframe, FrontFace.Clockwise, true, false);
+            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Solid, FrontFace.Clockwise, true, false);
             _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                 BlendStateDescription.SingleOverrideBlend,
                 DepthStencilStateDescription.DepthOnlyLessEqual,
@@ -90,59 +86,35 @@ namespace googletiles
 
         }
 
-        bool DrawTile(CommandList cl, ref Matrix4x4 viewMat, ref Matrix4x4 projMat, Vector3 pos, Vector3 dir, Tile tile,
-            int frameIdx)
+         public void Draw(CommandList cl, CameraView view)
         {
-            if (tile == null)
-                return false;
-
-            if (!tile.IsExpanded)
-                return false;
-
-            int childDrawnCount = 0;
-            if (tile.ChildTiles != null)
-            {
-                foreach (Tile childTile in tile.ChildTiles)
-                { childDrawnCount += DrawTile(cl, ref viewMat, ref projMat, pos, dir, childTile, frameIdx) ? 1: 0; }
-            }
-
-            if (tile.ChildTiles != null && childDrawnCount == tile.ChildTiles.Length)
-                return true;
-            float t;
-            bool foundIntersection = tile.Bounds.Intersect(pos, dir, out t);
-
-            if (tile.GlbFile != null)
-            {                
-                float screenSpan = tile.Bounds.GetScreenSpan(viewMat * projMat) * 0.1f;
-
-                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
-                cl.UpdateBuffer(_worldBuffer, 0, ref tile.Bounds.worldMat);
-                Vector4 color = new Vector4(0, 0, 1, 1);
-                if (tile.IsInView && tile.LastVisitedFrame == frameIdx)
-                    color = new Vector4(0, 0, 1, 1);
-                else if (tile.LastVisitedFrame != frameIdx)
-                    color = new Vector4(0.1f, 0.1f, 0.1f, 1);
-                cl.UpdateBuffer(_worldBuffer, 64, ref color);
-                cl.SetVertexBuffer(0, _vertexBuffer);
-                cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
-                cl.SetGraphicsResourceSet(0, _projViewSet);
-                cl.SetGraphicsResourceSet(1, _worldTextureSet);
-                cl.DrawIndexed(36, 1, 0, 0, 0);
-                return true;
-            }
-
-            return false;
-        }
-
-
-        public void Draw(CommandList cl, CameraView view, int frameIdx)
-        {
-            Matrix4x4 viewMat = view.DebugMode ? view.DbgViewMat : view.ViewMat;
-            Matrix4x4 projMat = view.DebugMode ? view.DbgProjMat : view.ProjMat;
+            if (!view.DebugMode)
+                return;
+            Matrix4x4 viewMat = view.DbgViewMat;
+            Matrix4x4 projMat = view.DbgProjMat;
 
             cl.SetPipeline(_pipeline);
+
             cl.UpdateBuffer(_projectionBuffer, 0, ref projMat);
-            DrawTile(cl, ref viewMat, ref projMat, view.Pos, view.LookDir, root, frameIdx);
+            cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
+
+            Matrix4x4 viewprojinv = view.ViewMat * view.ProjMat;
+            Matrix4x4.Invert(viewprojinv, out viewprojinv);
+
+            viewprojinv = Matrix4x4.CreateScale(2, 2, 1) * Matrix4x4.CreateTranslation(0, 0, 1) *
+                viewprojinv;
+
+            cl.UpdateBuffer(_worldBuffer, 0, ref viewprojinv);
+
+
+            Vector4 color = new Vector4(1, 1, 1, 1) * 0.5f;
+            cl.UpdateBuffer(_worldBuffer, 64, ref color);
+            cl.SetVertexBuffer(0, _vertexBuffer);
+            cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
+            cl.SetGraphicsResourceSet(0, _projViewSet);
+            cl.SetGraphicsResourceSet(1, _worldTextureSet);
+            cl.DrawIndexed(36, 1, 0, 0, 0);
+
         }
 
         private static VertexPositionTexture[] GetCubeVertices()
@@ -227,8 +199,8 @@ void main()
     vec4 worldPosition = World * vec4(Position, 1);
     vec4 viewPosition = View * worldPosition;
     vec4 clipPosition = Projection * viewPosition;
+    fsin_Color = vec4(TexCoords.xy, 1, 1);
     gl_Position = clipPosition;
-    fsin_Color = Color;
 }";
 
         private const string FragmentCode = @"
@@ -243,24 +215,4 @@ void main()
 }";
     }
 
-    public struct VertexPositionTexture
-    {
-        public const uint SizeInBytes = 20;
-
-        public float PosX;
-        public float PosY;
-        public float PosZ;
-
-        public float TexU;
-        public float TexV;
-
-        public VertexPositionTexture(Vector3 pos, Vector2 uv)
-        {
-            PosX = pos.X;
-            PosY = pos.Y;
-            PosZ = pos.Z;
-            TexU = uv.X;
-            TexV = uv.Y;
-        }
-    }
 }

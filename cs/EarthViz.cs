@@ -96,11 +96,10 @@ namespace googletiles
         }
 
 
-        public void Draw(CommandList cl, CameraView view, float deltaSeconds)
+        public void Draw(CommandList cl, CameraView view)
         {
-
-            Matrix4x4 viewMat = view.ViewMat;
-            Matrix4x4 projMat = view.ProjMat;
+            Matrix4x4 viewMat = view.DebugMode ? view.DbgViewMat : view.ViewMat;
+            Matrix4x4 projMat = view.DebugMode ? view.DbgProjMat : view.ProjMat;
             cl.ClearColorTarget(0, RgbaFloat.Black);
             cl.ClearDepthStencil(1f);
             cl.SetPipeline(_pipeline);
