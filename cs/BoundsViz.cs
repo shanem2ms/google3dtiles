@@ -130,8 +130,6 @@ namespace googletiles
                 cl.DrawIndexed(36, 1, 0, 0, 0);
                 return true;
             }
-
-            return false;
         }
 
 
