@@ -60,7 +60,7 @@ namespace googletiles
             root = new Tile(rootTile.root, null);
             cameraView = new CameraView();
             //earthViz = new EarthViz(root);
-            boundsViz = new BoundsViz(root);
+            boundsViz = new BoundsViz();
             frustumViz = new FrustumViz();
             veldridRenderer.cameraView = cameraView;
             veldridRenderer.OnRender = OnRender;
@@ -107,7 +107,7 @@ namespace googletiles
             if (earthViz != null)
                 earthViz.Draw(_cl, cameraView);
             if (boundsViz != null)
-                boundsViz.Draw(_cl, cameraView, frameIdx);
+                boundsViz.Draw(_cl, cameraView, root, frameIdx);
             if (frustumViz != null)
                 frustumViz.Draw(_cl, cameraView);
 
