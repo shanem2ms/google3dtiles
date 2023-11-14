@@ -118,7 +118,9 @@ namespace googletiles
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
                 cl.UpdateBuffer(_worldBuffer, 0, ref tile.Bounds.worldMat);
                 Vector4 color = new Vector4(1, 0, 0, 1);
-                if (tile.IsInView && tile.LastVisitedFrame == frameIdx)
+                if (tile.IsSelected)
+                    color = new Vector4(1, 1, 1, 1);
+                else if (tile.IsInView && tile.LastVisitedFrame == frameIdx)
                     color = new Vector4(0, 0, 1, 1);
                 else if (tile.LastVisitedFrame != frameIdx)
                     color = new Vector4(0.4f, 0.4f, 0.4f, 1);

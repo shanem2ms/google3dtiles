@@ -40,45 +40,40 @@ namespace googletiles
         bool frustumVizInitialized = false;
         Tile intersectedTile = null;
 
+        public Vector3 CameraPos => cameraView?.Pos ?? Vector3.Zero;
+        public Vector3 CameraLook => cameraView?.LookDir ?? Vector3.Zero;
+
         public bool DownloadEnabled { get; set; } = true;
         public MainWindow()
         {
             this.DataContext = this;
             InitializeComponent();
-            
-            DoDownload();
+            cameraView = new CameraView();
+            //earthViz = new EarthViz(root);
+            boundsViz = new BoundsViz();
+            frustumViz = new FrustumViz();
+            veldridRenderer.cameraView = cameraView;
+            GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty).ContinueWith(t =>
+            {
+                GoogleTile rootTile = t.Result;
+                sessionkey = rootTile.GetSession();
+                root = new Tile(rootTile.root, null);
+                RefreshTiles();
+                veldridRenderer.OnRender = OnRender;
+            });
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public string sessionkey;
 
-        async Task<bool> DoDownload()
-        {
-            GoogleTile rootTile = await
-                GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty);
-            sessionkey = rootTile.GetSession();
-            root = new Tile(rootTile.root, null);
-            cameraView = new CameraView();
-            //earthViz = new EarthViz(root);
-            boundsViz = new BoundsViz(root);
-            frustumViz = new FrustumViz();
-            veldridRenderer.cameraView = cameraView;
-            veldridRenderer.OnRender = OnRender;
-            Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
-            var result = await root.DownloadChildren(sessionkey, viewProj, 0);
-            RefreshTiles();
-            return true;
-        }
-
         int frameIdx = 1;
         void OnRender(CommandList _cl, GraphicsDevice _gd, Swapchain _sc)
         {
             cameraView?.Update();
-            Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
             if (DownloadEnabled)
             {
                 frameIdx++;
-                root.DownloadChildren(sessionkey, viewProj, frameIdx);
+                root.DownloadChildren(sessionkey, cameraView, frameIdx);
             }
             float t;
             root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t, out Tile _intersectedTile);
@@ -110,6 +105,9 @@ namespace googletiles
                 boundsViz.Draw(_cl, cameraView, frameIdx);
             if (frustumViz != null)
                 frustumViz.Draw(_cl, cameraView);
+
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraLook)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraPos)));
 
         }
         void RefreshTiles()
@@ -155,6 +153,19 @@ namespace googletiles
                 p = p.Parent;
             }
             RefreshTiles();
+        }
+
+        private void TilesLB_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            foreach (var item in e.AddedItems)
+            {
+                (item as Tile).IsSelected = true;
+            }
+
+            foreach (var item in e.RemovedItems)
+            {
+                (item as Tile).IsSelected = false;
+            }
         }
     }
 }

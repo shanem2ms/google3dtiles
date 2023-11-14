@@ -24,9 +24,17 @@ namespace googletiles
         Vector3 dbgCamPos = new Vector3(0, 0, scale);
         public bool DebugMode = false;
         bool dbgInput = false;
+        Matrix4x4 viewProj = Matrix4x4.Identity;
+        public Matrix4x4 ViewProj => viewProj;
 
         Quaternion CamRot { get => dbgInput ? dbgCamRot : camRot; set { if (dbgInput) dbgCamRot = value; else camRot = value; }  }
         Vector3 CamPos { get => dbgInput ? dbgCamPos : camPos; set { if (dbgInput) dbgCamPos = value; else camPos = value; } }
+
+        public CameraView()
+        {
+            Update();
+        }
+
         public void OnMouseDown(MouseButtonEventArgs e, Point point)
         {
             mouseDownPt = point;
@@ -120,6 +128,7 @@ namespace googletiles
             CamPos += wsMotion;
             CamPos += adMotion;
             CamPos += eqMotion;
+            this.viewProj = this.ViewMat * this.ProjMat;
         }
 
         public Matrix4x4 DbgProjMat
