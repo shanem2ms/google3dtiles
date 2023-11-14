@@ -12,7 +12,18 @@
             <ColumnDefinition Width="10" />
             <ColumnDefinition Width="200" />
         </Grid.ColumnDefinitions>
-        <local:VeldridComponent x:Name="veldridRenderer"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Camera"/>
+                <TextBlock Text="{Binding CameraPos}" Margin="15,0,5,0" />
+                <TextBlock Text="{Binding CameraLook}" Margin="15,0,5,0" />
+            </StackPanel>
+            <local:VeldridComponent Grid.Row="1" x:Name="veldridRenderer"/>
+        </Grid>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Blue" />
         <Grid Grid.Column="2" >
             <Grid.RowDefinitions>
@@ -24,7 +35,8 @@
                 <CheckBox Content="Download" IsChecked="{Binding Path=DownloadEnabled, Mode=TwoWay}"/>
                 <Button Content="Select View" Click="SelectView_Click" />
             </StackPanel>
-            <ListBox Grid.Row="1" Name="TilesLB" Background="AliceBlue" ItemsSource="{Binding Tiles}">
+            <ListBox Grid.Row="1" Name="TilesLB" Background="AliceBlue" ItemsSource="{Binding Tiles}"
+                     SelectionChanged="TilesLB_SelectionChanged">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="{x:Type local:Tile}" >
                         <Grid>

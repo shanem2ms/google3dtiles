@@ -49,6 +49,8 @@ namespace googletiles
 
         public bool IsExpanded { get; set; } = false;
 
+        public bool IsSelected { get; set; } = false;
+
         public bool IsInView { get; set; } = false;
         public int LastVisitedFrame { get; set; } = 0;
 
@@ -148,14 +150,14 @@ namespace googletiles
             return true;
         }
 
-        public async Task<bool> DownloadChildren(string sessionkey, Matrix4x4 viewProj, int frameIdx)
+        public async Task<bool> DownloadChildren(string sessionkey, CameraView cv, int frameIdx)
         {
             LastVisitedFrame = frameIdx;
-            IsInView = bounds.IsInView(viewProj);
+            IsInView = bounds.IsInView(cv);
             if (!IsInView)
                 return false;
 
-            float span = bounds.GetScreenSpan(viewProj);
+            float span = bounds.GetScreenSpan(cv.ViewProj);
 
             if (span < 5)
                 return false;
@@ -186,7 +188,7 @@ namespace googletiles
                 foreach (Tile tile in ChildTiles)
                 {
                     allTasks.Add(
-                        tile.DownloadChildren(sessionkey, viewProj, frameIdx));
+                        tile.DownloadChildren(sessionkey, cv, frameIdx));
                 }
             }
             await Task.WhenAll(allTasks);
@@ -391,6 +393,8 @@ namespace googletiles
         public Matrix4x4 worldMat;
         public Vector3[] pts;
         public Quad[] quads;
+        static Vector3[] cubePts;
+        
         bool IsGlobal => scale == GlobalScale;
 
         static int[][] PlaneIndices ={
@@ -401,6 +405,16 @@ namespace googletiles
             new int[]{ 0,4,5,1},
             new int[]{ 2,3,7,6}
         };
+        static Bounds()
+        {
+            cubePts = new Vector3[8];
+            for (int i = 0; i < 8; ++i)
+            {
+                cubePts[i] = new Vector3((i & 1) != 0 ? -0.5f : 0.5f,
+                                ((i >> 1) & 1) != 0 ? -0.5f : 0.5f,
+                                ((i >> 2) & 1) != 0 ? -0.5f : 0.5f);
+            }
+        }
         public Bounds(GoogleTile.BoundingVolume bv)
         {
             center = new Vector3(bv.box[0], bv.box[1], bv.box[2]);
@@ -426,10 +440,7 @@ namespace googletiles
 
             for (int i = 0; i < 8; ++i)
             {
-                Vector3 pt = new Vector3((i & 1) != 0 ? -0.5f : 0.5f,
-                                ((i >> 1) & 1) != 0 ? -0.5f : 0.5f,
-                                ((i >> 2) & 1) != 0 ? -0.5f : 0.5f);
-                pts[i] = Vector3.Transform(pt, worldMat);
+                pts[i] = Vector3.Transform(cubePts[i], worldMat);
             }
 
             quads = new Quad[6];
@@ -472,14 +483,15 @@ namespace googletiles
                 return 0;
             return (new Vector2(spt7.X, spt7.Y) - new Vector2(spt0.X, spt0.Y)).LengthSquared();
         }
-        public bool IsInView(Matrix4x4 viewProj)
+        public bool IsInView(CameraView cv)
         {
             if (IsGlobal)
                 return true;
             int[] sides = new int[6];
+            float[]dside = new float[8];
             for (int idx = 0; idx < pts.Length; ++idx)
             {
-                Vector4 spt = Vector4.Transform(new Vector4(pts[idx], 1), viewProj);
+                Vector4 spt = Vector4.Transform(new Vector4(pts[idx], 1), cv.ViewProj);
                 spt /= spt.W;
                 if (spt.X < -1)
                     sides[0]++;
@@ -493,6 +505,8 @@ namespace googletiles
                     sides[4]++;
                 else if (spt.Z > 1)
                     sides[5]++;
+
+                dside[idx] = Vector3.Dot((pts[idx] - cv.Pos), cv.LookDir);
             }
             for (int i = 0; i < sides.Length; ++i)
             {

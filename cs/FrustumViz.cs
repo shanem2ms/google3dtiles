@@ -24,7 +24,6 @@ namespace googletiles
         private DeviceBuffer _indexBuffer;
         private Pipeline _pipeline;
         private ResourceSet _projViewSet;
-        private ResourceSet _worldTextureSet;
 
         public FrustumViz()
         {
@@ -59,10 +58,7 @@ namespace googletiles
             ResourceLayout projViewLayout = factory.CreateResourceLayout(
                 new ResourceLayoutDescription(
                     new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                    new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
-
-            ResourceLayout worldTextureLayout = factory.CreateResourceLayout(
-                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                     new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
             RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.None, PolygonFillMode.Solid, FrontFace.Clockwise, true, false);
@@ -72,21 +68,18 @@ namespace googletiles
                 description,
                 PrimitiveTopology.TriangleList,
                 shaderSet,
-                new[] { projViewLayout, worldTextureLayout },
+                new[] { projViewLayout },
                 sc.Framebuffer.OutputDescription));
 
             _projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
                 projViewLayout,
                 _projectionBuffer,
-                _viewBuffer));
-
-            _worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
-                worldTextureLayout,
+                _viewBuffer,
                 _worldBuffer));
 
         }
 
-         public void Draw(CommandList cl, CameraView view)
+        public void Draw(CommandList cl, CameraView view)
         {
             if (!view.DebugMode)
                 return;
@@ -101,7 +94,7 @@ namespace googletiles
             Matrix4x4 viewprojinv = view.ViewMat * view.ProjMat;
             Matrix4x4.Invert(viewprojinv, out viewprojinv);
 
-            viewprojinv = Matrix4x4.CreateScale(2, 2, 1) * Matrix4x4.CreateTranslation(0, 0, 1) *
+            viewprojinv = Matrix4x4.CreateScale(2, 2, 1) * Matrix4x4.CreateTranslation(0, 0, 0.5f) *
                 viewprojinv;
 
             cl.UpdateBuffer(_worldBuffer, 0, ref viewprojinv);
@@ -112,7 +105,6 @@ namespace googletiles
             cl.SetVertexBuffer(0, _vertexBuffer);
             cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
             cl.SetGraphicsResourceSet(0, _projViewSet);
-            cl.SetGraphicsResourceSet(1, _worldTextureSet);
             cl.DrawIndexed(36, 1, 0, 0, 0);
 
         }
@@ -199,7 +191,7 @@ void main()
     vec4 worldPosition = World * vec4(Position, 1);
     vec4 viewPosition = View * worldPosition;
     vec4 clipPosition = Projection * viewPosition;
-    fsin_Color = vec4(TexCoords.xy, 1, 1);
+    fsin_Color = vec4(Position.xyz * 2 + 1, 1);
     gl_Position = clipPosition;
 }";
 
