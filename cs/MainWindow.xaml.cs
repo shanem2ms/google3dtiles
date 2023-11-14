@@ -77,8 +77,8 @@ namespace googletiles
             Matrix4x4 viewProj = cameraView.ViewMat * cameraView.ProjMat;
             if (DownloadEnabled)
             {
-                root.DownloadChildren(sessionkey, viewProj, frameIdx);
                 frameIdx++;
+                root.DownloadChildren(sessionkey, viewProj, frameIdx);
             }
             float t;
             root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t, out Tile _intersectedTile);

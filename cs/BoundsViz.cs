@@ -111,17 +111,17 @@ namespace googletiles
             float t;
             bool foundIntersection = tile.Bounds.Intersect(pos, dir, out t);
 
-            if (tile.GlbFile != null)
+            //if (tile.GlbFile != null)
             {                
                 float screenSpan = tile.Bounds.GetScreenSpan(viewMat * projMat) * 0.1f;
 
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
                 cl.UpdateBuffer(_worldBuffer, 0, ref tile.Bounds.worldMat);
-                Vector4 color = new Vector4(0, 0, 1, 1);
+                Vector4 color = new Vector4(1, 0, 0, 1);
                 if (tile.IsInView && tile.LastVisitedFrame == frameIdx)
                     color = new Vector4(0, 0, 1, 1);
                 else if (tile.LastVisitedFrame != frameIdx)
-                    color = new Vector4(0.1f, 0.1f, 0.1f, 1);
+                    color = new Vector4(0.4f, 0.4f, 0.4f, 1);
                 cl.UpdateBuffer(_worldBuffer, 64, ref color);
                 cl.SetVertexBuffer(0, _vertexBuffer);
                 cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);

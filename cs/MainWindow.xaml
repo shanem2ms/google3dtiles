@@ -55,6 +55,7 @@
                 <TextBlock Grid.Row="2" Text="{Binding ChildJson}" Background="#FFEEDDFF"/>
                 <TextBlock Grid.Row="3" Text="{Binding GlbFile}" Background="#FFDDEEFF"/>
                 <TextBlock Grid.Row="4" Text="{Binding IsInView}" Background="#FFEEEEDD"/>
+                <TextBlock Grid.Row="5" Text="{Binding LastVisitedFrame}" Background="#FFEEEEDD"/>
             </Grid>
         </Grid>
     </Grid>
