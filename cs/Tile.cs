@@ -489,6 +489,8 @@ namespace googletiles
                 return true;
             int[] sides = new int[6];
             float[]dside = new float[8];
+            Vector4[] vpts = new Vector4[8];
+            Vector4[] v2pts = new Vector4[8];
             for (int idx = 0; idx < pts.Length; ++idx)
             {
                 Vector4 spt = Vector4.Transform(new Vector4(pts[idx], 1), cv.ViewProj);
@@ -506,6 +508,8 @@ namespace googletiles
                 else if (spt.Z > 1)
                     sides[5]++;
 
+                vpts[idx] = Vector4.Transform(new Vector4(pts[idx], 1), cv.ViewMat);
+                v2pts[idx] = Vector4.Transform(vpts[idx], cv.ProjMat);
                 dside[idx] = Vector3.Dot((pts[idx] - cv.Pos), cv.LookDir);
             }
             for (int i = 0; i < sides.Length; ++i)
