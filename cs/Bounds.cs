@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Text;
@@ -158,10 +159,32 @@ namespace googletiles
                 return 0;
             return (new Vector2(spt7.X, spt7.Y) - new Vector2(spt0.X, spt0.Y)).LengthSquared();
         }
+
+        bool PointInBounds(Vector3 pt)
+        {
+            float vx = Vector3.Dot(pt - center, rot[0]);
+            if (MathF.Abs(vx) > scale[0])
+                return false;
+            float vy = Vector3.Dot(pt - center, rot[1]);
+            if (MathF.Abs(vy) > scale[1])
+                return false;
+            float vz = Vector3.Dot(pt - center, rot[2]);
+            if (MathF.Abs(vz) > scale[2])
+                return false;
+            return true;
+        }
+
+        public bool IsInside(CameraView cv)
+        {
+            return PointInBounds(cv.Pos);
+        }
         public bool IsInView(CameraView cv)
         {
             if (IsGlobal)
                 return true;
+            if (IsInside(cv)) return true;
+            if (Vector3.Dot(cv.LookDir, rot[2]) > 0)
+                return false;
             int[] sides = new int[6];
             int[] fsides = new int[6];
             for (int idx = 0; idx < pts.Length; ++idx)

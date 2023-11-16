@@ -17,14 +17,21 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Camera"/>
-                <TextBox Background="Transparent"
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Camera"/>
+                    <TextBox Background="Transparent"
                      BorderThickness="0" Text="{Binding CameraPos, Mode=OneWay}"
                      IsReadOnly="True" TextWrapping="Wrap" Margin="15,0,5,0" />
-                <TextBox Background="Transparent"
+                    <TextBox Background="Transparent"
                      BorderThickness="0" Text="{Binding CameraRot, Mode=OneWay}"
                      IsReadOnly="True" TextWrapping="Wrap" Margin="15,0,5,0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Target"/>
+                    <TextBlock Text="{Binding TargetDist}" Margin="15,0,5,0"/>
+                    <TextBlock Text="{Binding TargetTile}" Margin="15,0,5,0"/>
+                </StackPanel>
             </StackPanel>
             <local:VeldridComponent Grid.Row="1" x:Name="veldridRenderer"/>
         </Grid>

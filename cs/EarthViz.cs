@@ -11,6 +11,7 @@ using Veldrid.SPIRV;
 using System.Windows;
 using System.Windows.Input;
 using System.Diagnostics;
+using System.Transactions;
 
 namespace googletiles
 {
@@ -71,41 +72,46 @@ namespace googletiles
         }
 
 
-        void DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile, int frameIdx)
+        bool DrawTile(CommandList cl, ref Matrix4x4 viewMat, Vector3 pos, Tile tile, int frameIdx)
         {
             if (tile == null)
-                return;
+                return false;
             if (!tile.IsInView || tile.LastVisitedFrame != frameIdx)
-                return;
+                return false;
 
-            if (tile.mesh != null)
+            bool subtileDrawn = false;
+            if (tile.ChildTiles != null)
+            {
+                foreach (Tile childTile in tile.ChildTiles)
+                { subtileDrawn |= DrawTile(cl, ref viewMat, pos, childTile, frameIdx); }
+            }
+            if (tile.mesh != null && !subtileDrawn)
             {               
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
                 cl.SetVertexBuffer(0, tile.mesh._vertexBuffer);
                 cl.SetIndexBuffer(tile.mesh._indexBuffer, IndexFormat.UInt32);
                 cl.SetGraphicsResourceSet(0, _projViewSet);
-                VeldridComponent.Graphics.UpdateBuffer(tile.mesh._worldBuffer, 0, ref tile.mesh.worldMat);
+                Matrix4x4 wm = Matrix4x4.CreateTranslation(tile.mesh.translation - pos);
+                VeldridComponent.Graphics.UpdateBuffer(tile.mesh._worldBuffer, 0, ref wm);
 
                 cl.SetGraphicsResourceSet(1, tile.mesh._worldTextureSet);
-                cl.DrawIndexed((uint)tile.mesh.triangleCnt, 1, 0, 0, 0);
+                cl.DrawIndexed((uint)tile.mesh.triangleCnt * 3, 1, 0, 0, 0);
+                return true;
             }        
-            if (tile.ChildTiles != null)
-            {
-                foreach (Tile childTile in tile.ChildTiles)
-                { DrawTile(cl, ref viewMat, childTile, frameIdx); }
-            }
+
+            return subtileDrawn;
         }
 
 
         public void Draw(CommandList cl, CameraView view, Tile root, int frameIdx)
         {
-            Matrix4x4 viewMat = view.DebugMode ? view.DbgViewMat : view.ViewMat;
+            Matrix4x4 viewMat = view.DebugMode ? view.DbgViewMat : view.ViewMatNoTranslate;
             Matrix4x4 projMat = view.DebugMode ? view.DbgProjMat : view.ProjMat;
             cl.ClearColorTarget(0, RgbaFloat.Black);
             cl.ClearDepthStencil(1f);
             cl.SetPipeline(_pipeline);
             cl.UpdateBuffer(_projectionBuffer, 0, ref projMat);
-            DrawTile(cl, ref viewMat, root, frameIdx);
+            DrawTile(cl, ref viewMat, view.DebugMode ? Vector3.Zero : view.Pos, root, frameIdx);
         }
 
         private static VertexPositionTexture[] GetCubeVertices()

@@ -13,8 +13,8 @@ namespace googletiles
     {
         Point mouseDownPt;
         bool mouseDown = false;
-        Vector3 camPos = new Vector3(1511567.1f, -4559168.5f, 4467142.5f);
-        Quaternion camRot = new Quaternion(0.37384394f, 0.11903884f, 0.030459171f, 0.9193167f);
+        Vector3 camPos = new Vector3(1529900.5f, -4459775.5f, 4281051.5f);
+        Quaternion camRot = new Quaternion(0.2559748f, 0.1646896f, 0.11283519f, 0.94584507f);
 
         Quaternion camRotMouseDown;
         static float scale = 8000000.0f;
@@ -198,6 +198,16 @@ namespace googletiles
                 Matrix4x4 viewMat =
                         Matrix4x4.CreateFromQuaternion(camRot) *
                         Matrix4x4.CreateTranslation(camPos);
+                Matrix4x4.Invert(viewMat, out viewMat);
+                return viewMat;
+            }
+        }
+        public Matrix4x4 ViewMatNoTranslate
+        {
+            get
+            {
+                Matrix4x4 viewMat =
+                        Matrix4x4.CreateFromQuaternion(camRot);
                 Matrix4x4.Invert(viewMat, out viewMat);
                 return viewMat;
             }

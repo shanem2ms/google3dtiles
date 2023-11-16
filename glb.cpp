@@ -76,6 +76,16 @@ extern "C" _declspec(dllexport) bool GetFaces(GltfModel *pmodel, void* pFaces, u
     return true;
 }
 
+extern "C" _declspec(dllexport) uint32_t GetTextureWidth(GltfModel * pmodel)
+{
+    return pmodel->model.images[0].width;
+}
+
+extern "C" _declspec(dllexport) uint32_t GetTextureHeight(GltfModel * pmodel)
+{
+    return pmodel->model.images[0].height;
+}
+
 extern "C" _declspec(dllexport) bool GetTexture(GltfModel * pmodel, void* pTexture, uint32_t bufSize)
 {
     std::vector<uint8_t> &img = pmodel->model.images[0].image;
@@ -140,4 +150,22 @@ static size_t ComponentTypeByteSize(int type) {
     default:
         return 0;
     }
+}
+
+
+int main(int argc, char* argv[])
+{
+    if (argc < 2)
+        return -1;
+    tinygltf::Model model;
+    tinygltf::TinyGLTF loader;
+    std::string err;
+    std::string warn;
+    loader.LoadBinaryFromFile(&model, &err, &warn, argv[1]);    
+    draco::DecoderBuffer buffer;
+    buffer.Init(
+        (const char*)model.buffers[0].data.data(), model.buffers[0].data.size());
+    draco::Decoder decoder;
+    draco::Mesh mesh;
+    auto result = decoder.DecodeBufferToGeometry(&buffer, &mesh);
 }

@@ -39,7 +39,10 @@ namespace googletiles
         bool boundsVizInitialized = false;
         bool frustumVizInitialized = false;
         Tile intersectedTile = null;
+        bool saveVisibleGlb = false;
 
+        public float TargetDist { get; set; }
+        public int TargetTile { get; set; }
         public Vector3 CameraPos => cameraView?.Pos ?? Vector3.Zero;
         public Vector3 CameraLook => cameraView?.LookDir ?? Vector3.Zero;
         public string CameraRot
@@ -57,7 +60,7 @@ namespace googletiles
             this.DataContext = this;
             InitializeComponent();
             cameraView = new CameraView();
-            earthViz = new EarthViz();
+            //earthViz = new EarthViz();
             boundsViz = new BoundsViz();
             frustumViz = new FrustumViz();
             veldridRenderer.cameraView = cameraView;
@@ -80,11 +83,15 @@ namespace googletiles
             cameraView?.Update();
             if (DownloadEnabled)
             {
+                bool saveVis = saveVisibleGlb;
+                saveVisibleGlb = false;
                 frameIdx++;
-                root.DownloadChildren(sessionkey, cameraView, frameIdx);
+                root.DownloadChildren(sessionkey, cameraView, frameIdx, saveVis);
             }
             float t;
             root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t, out Tile _intersectedTile);
+            TargetDist = t;
+            TargetTile = this.intersectedTile?.Idx ?? -1;
             this.intersectedTile = _intersectedTile;
 
             if (!float.IsInfinity(t)) { 
@@ -116,7 +123,9 @@ namespace googletiles
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraLook)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraPos)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraRot)));            
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraRot)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetTile)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetDist)));
         }
         void RefreshTiles()
         {
@@ -141,6 +150,10 @@ namespace googletiles
         }
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (e.Key == Key.P)
+            {
+                saveVisibleGlb = true;
+            }
             cameraView.OnKeyDown(e);
             base.OnKeyDown(e);
         }
