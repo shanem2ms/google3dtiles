@@ -21,6 +21,7 @@ using Veldrid;
 using static System.Net.WebRequestMethods;
 using System.Security.Cryptography.X509Certificates;
 using Vortice.DXGI;
+using System.Transactions;
 
 namespace googletiles
 {
@@ -53,6 +54,7 @@ namespace googletiles
 
         public bool IsInView { get; set; } = false;
         public int LastVisitedFrame { get; set; } = 0;
+        public Vector3 MeshLoc => mesh?.translation ?? Vector3.Zero;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         static int tileCount = 0;
@@ -145,8 +147,8 @@ namespace googletiles
 
         public async Task<bool> DownloadGlb(string sessionkey)
         {
-            Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
-            mesh = new GlbMesh(stream, this.bounds);
+            Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);            
+            mesh = new GlbMesh(Path.GetFileName(GlbFile), stream, this.bounds);
             return true;
         }
 
@@ -238,9 +240,9 @@ namespace googletiles
         public DeviceBuffer _indexBuffer;
         private Texture _surfaceTexture;
         private TextureView _surfaceTextureView;
-        private DeviceBuffer _worldBuffer;
+        public DeviceBuffer _worldBuffer;
         public ResourceSet _worldTextureSet;
-        Matrix4x4 worldMat;
+        public Matrix4x4 worldMat;
 
         public int triangleCnt => triangleList.Length / 3;
         public Vector3 translation;
@@ -265,7 +267,7 @@ namespace googletiles
 
         [DllImport("libglb.dll")]
         static extern void FreeMesh(nint pmesh);
-        public GlbMesh(Stream stream, Bounds b)
+        public GlbMesh(string name, Stream stream, Bounds b)
         {
             byte[] buf;
             var memoryStream = new MemoryStream();
@@ -275,6 +277,7 @@ namespace googletiles
             nint nativeBuf = Marshal.AllocHGlobal(buf.Length);
             Marshal.Copy(buf, 0, nativeBuf, buf.Length);
             nint meshptr = LoadMesh(nativeBuf, (uint)buf.Length);
+            //System.IO.File.WriteAllBytes(name, buf);
 
             Marshal.FreeHGlobal(nativeBuf);
             {
@@ -301,19 +304,51 @@ namespace googletiles
                 bool success = GetTexture(meshptr, imageBuf, 256 * 256 * 4);
             }
             FreeMesh(meshptr);
-            CreateIBVB();
-
+            /*
+            float t = translation.Y;
+            translation.Y = translation.Z;
+            translation.Z = t;
+            */
             Matrix4x4 zUp = new Matrix4x4(
                 1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f,
                 0.0f, -1.0f, 0.0f, 0.0f,
-                0.0f, 0.0f, 01.0f, 0.0f,
                 0.0f, 0.0f, 0.0f, 1.0f);
             Vector3 t = Vector3.Transform(translation, zUp);
+            translation = t;
+            //Debug.WriteLine(name);
+            //Debug.WriteLine($"c - {t}");
+            /*
+            float vx = Vector3.Dot(t - b.center, b.rot[0]);
+            if (MathF.Abs(vx) > b.scale[0])
+                Debugger.Break();
+            float vy = Vector3.Dot(t - b.center, b.rot[1]);
+            if (MathF.Abs(vy) > b.scale[1])
+                Debugger.Break();
+            float vz = Vector3.Dot(t - b.center, b.rot[2]);
+            if (MathF.Abs(vz) > b.scale[2])
+                Debugger.Break();
+            
+            Debug.WriteLine($"c - {b.center}");
+            Debug.WriteLine($"m - {t}");
+            Debug.WriteLine($"l - {(t - b.center).Length()}");
+            Debug.WriteLine($"s - {b.scale.Length()}");
+            */
+            for (int i = 0; i < ptList.Length; i += 5)
+            {
+                Vector3 pt = new Vector3(ptList[i], ptList[i + 1], ptList[i + 2]);
+                pt = Vector3.Transform(pt, zUp);
+                ptList[i] = pt.X;
+                ptList[i+1] = pt.Y;
+                ptList[i+2] = pt.Z;
+            }
+            /*
             for (int j = 0; j < 6; ++j)
             {
                 if (b.quads[j].Side(t))
                     Debugger.Break();
-            }
+            }*/
+            /*
             for (int i = 0; i < ptList.Length; i+=5)
             {
                 Vector3 pt = new Vector3(ptList[i], ptList[i+1], ptList[i+2]);
@@ -322,7 +357,8 @@ namespace googletiles
                     if (b.quads[j].Side(pt + translation))
                         Debugger.Break();
                 }
-            }
+            }*/
+            CreateIBVB();
         }
         void CreateIBVB()
         {
@@ -330,7 +366,6 @@ namespace googletiles
             _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
             worldMat =
                 Matrix4x4.CreateTranslation(translation);
-            VeldridComponent.Graphics.UpdateBuffer(_worldBuffer, 0, ref worldMat);
 
             _vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(ptList.Length * sizeof(float)), BufferUsage.VertexBuffer));
             VeldridComponent.Graphics.UpdateBuffer(_vertexBuffer, 0, ptList);

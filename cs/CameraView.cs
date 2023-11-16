@@ -16,7 +16,8 @@ namespace googletiles
         Quaternion camRot = new Quaternion(-0.023609221f, 0.46456802f, 0.012391418f, 0.8851359f);
         Quaternion camRotMouseDown;
         static float scale = 8000000.0f;
-        Vector3 camPos = new Vector3(6293211, 159773.1f, 1549424.5f);
+        Vector3 camPos = 
+        new Vector3(6293211, 159773.1f, 1549424.5f);
         Vector3 wsMotion;
         Vector3 adMotion;
         Vector3 eqMotion;

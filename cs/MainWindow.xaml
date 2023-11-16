@@ -61,6 +61,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="{Binding Center}" />
                 <TextBlock Grid.Row="1" Text="{Binding Scale}" />
@@ -68,6 +69,7 @@
                 <TextBlock Grid.Row="3" Text="{Binding GlbFile}" Background="#FFDDEEFF"/>
                 <TextBlock Grid.Row="4" Text="{Binding IsInView}" Background="#FFEEEEDD"/>
                 <TextBlock Grid.Row="5" Text="{Binding LastVisitedFrame}" Background="#FFEEEEDD"/>
+                <TextBlock Grid.Row="6" Text="{Binding MeshLoc}" />
             </Grid>
         </Grid>
     </Grid>

@@ -61,7 +61,7 @@ namespace googletiles
                     new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                     new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.Back, PolygonFillMode.Solid, FrontFace.CounterClockwise, true, false);
+            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.Back, PolygonFillMode.Wireframe, FrontFace.CounterClockwise, true, false);
             _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                 BlendStateDescription.SingleOverrideBlend,
                 DepthStencilStateDescription.DepthOnlyLessEqual,

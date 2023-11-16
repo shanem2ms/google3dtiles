@@ -53,7 +53,7 @@ namespace googletiles
                     new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
                     new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment)));
 
-            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.Back, PolygonFillMode.Wireframe, FrontFace.CounterClockwise, true, false);
+            RasterizerStateDescription description = new RasterizerStateDescription(FaceCullMode.Back, PolygonFillMode.Solid, FrontFace.CounterClockwise, true, false);
             _pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                 BlendStateDescription.SingleOverrideBlend,
                 DepthStencilStateDescription.DepthOnlyLessEqual,
@@ -84,6 +84,8 @@ namespace googletiles
                 cl.SetVertexBuffer(0, tile.mesh._vertexBuffer);
                 cl.SetIndexBuffer(tile.mesh._indexBuffer, IndexFormat.UInt32);
                 cl.SetGraphicsResourceSet(0, _projViewSet);
+                VeldridComponent.Graphics.UpdateBuffer(tile.mesh._worldBuffer, 0, ref tile.mesh.worldMat);
+
                 cl.SetGraphicsResourceSet(1, tile.mesh._worldTextureSet);
                 cl.DrawIndexed((uint)tile.mesh.triangleCnt, 1, 0, 0, 0);
             }        
