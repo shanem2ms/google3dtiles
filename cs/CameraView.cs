@@ -13,11 +13,11 @@ namespace googletiles
     {
         Point mouseDownPt;
         bool mouseDown = false;
-        Quaternion camRot = new Quaternion(-0.023609221f, 0.46456802f, 0.012391418f, 0.8851359f);
+        Vector3 camPos = new Vector3(1511567.1f, -4559168.5f, 4467142.5f);
+        Quaternion camRot = new Quaternion(0.37384394f, 0.11903884f, 0.030459171f, 0.9193167f);
+
         Quaternion camRotMouseDown;
         static float scale = 8000000.0f;
-        Vector3 camPos = 
-        new Vector3(6293211, 159773.1f, 1549424.5f);
         Vector3 wsMotion;
         Vector3 adMotion;
         Vector3 eqMotion;
@@ -28,8 +28,9 @@ namespace googletiles
         Matrix4x4 viewProj = Matrix4x4.Identity;
         public Matrix4x4 ViewProj => viewProj;
 
+        public Quaternion ViewRot => camRot;
         Quad[] frustumQuads = new Quad[6];
-        Quaternion CamRot { get => dbgInput ? dbgCamRot : camRot; set { if (dbgInput) dbgCamRot = value; else camRot = value; }  }
+        Quaternion CamRot { get => dbgInput ? dbgCamRot : camRot; set { if (dbgInput) dbgCamRot = value; else camRot = value; } }
         Vector3 CamPos { get => dbgInput ? dbgCamPos : camPos; set { if (dbgInput) dbgCamPos = value; else camPos = value; } }
 
 
@@ -72,7 +73,7 @@ namespace googletiles
 
             for (int quadIdx = 0; quadIdx < frustumQuads.Length; ++quadIdx)
             {
-                Vector3[] qpts = new Vector3[4]; 
+                Vector3[] qpts = new Vector3[4];
                 for (int i = 0; i < 4; ++i)
                 {
                     Vector4 ppt = Vector4.Transform(quadPts[quadIdx * 4 + i], viewprojinv);
@@ -143,7 +144,6 @@ namespace googletiles
 
         }
 
-
         public float LookAtDist { get; set; } = float.PositiveInfinity;
         public Vector3 LookDir => -Vector3.Transform(Vector3.UnitZ, camRot);
         public Vector3 Pos => camPos;
@@ -191,7 +191,9 @@ namespace googletiles
                     10f * Math.Min(LookAtDist, scale));
             }
         }
-        public Matrix4x4 ViewMat { get
+        public Matrix4x4 ViewMat
+        {
+            get
             {
                 Matrix4x4 viewMat =
                         Matrix4x4.CreateFromQuaternion(camRot) *

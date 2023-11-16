@@ -42,6 +42,14 @@ namespace googletiles
 
         public Vector3 CameraPos => cameraView?.Pos ?? Vector3.Zero;
         public Vector3 CameraLook => cameraView?.LookDir ?? Vector3.Zero;
+        public string CameraRot
+        {
+            get
+            {
+                Quaternion q = cameraView?.ViewRot ?? Quaternion.Zero;
+                return $"{q.X}f, {q.Y}f, {q.Z}f, {q.W}f";
+            }
+        }
 
         public bool DownloadEnabled { get; set; } = true;
         public MainWindow()
@@ -108,7 +116,7 @@ namespace googletiles
 
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraLook)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraPos)));
-
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraRot)));            
         }
         void RefreshTiles()
         {
