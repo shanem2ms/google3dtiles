@@ -27,9 +27,12 @@ namespace googletiles
         Matrix4x4 viewProj = Matrix4x4.Identity;
         public Matrix4x4 ViewProj => viewProj;
 
+        Quad[] frustumQuads = new Quad[6];
         Quaternion CamRot { get => dbgInput ? dbgCamRot : camRot; set { if (dbgInput) dbgCamRot = value; else camRot = value; }  }
         Vector3 CamPos { get => dbgInput ? dbgCamPos : camPos; set { if (dbgInput) dbgCamPos = value; else camPos = value; } }
 
+
+        public Quad[] FrustumQuads => frustumQuads;
         public CameraView()
         {
             Update();
@@ -56,6 +59,27 @@ namespace googletiles
         public void OnMouseUp(MouseButtonEventArgs e, Point point)
         {
             mouseDown = false;
+        }
+
+        void BuildFrustumQuads()
+        {
+            Matrix4x4 viewprojinv;
+            Matrix4x4.Invert(viewProj, out viewprojinv);
+
+            viewprojinv = Matrix4x4.CreateScale(2, 2, 1) * Matrix4x4.CreateTranslation(0, 0, 0.5f) *
+                viewprojinv;
+
+            for (int quadIdx = 0; quadIdx < frustumQuads.Length; ++quadIdx)
+            {
+                Vector3[] qpts = new Vector3[4]; 
+                for (int i = 0; i < 4; ++i)
+                {
+                    Vector4 ppt = Vector4.Transform(quadPts[quadIdx * 4 + i], viewprojinv);
+                    ppt /= ppt.W;
+                    qpts[i] = new Vector3(ppt.X, ppt.Y, ppt.Z);
+                }
+                frustumQuads[quadIdx] = new Quad(qpts);
+            }
         }
 
         float speed = 0.01f * scale;
@@ -129,6 +153,7 @@ namespace googletiles
             CamPos += adMotion;
             CamPos += eqMotion;
             this.viewProj = this.ViewMat * this.ProjMat;
+            BuildFrustumQuads();
         }
 
         public Matrix4x4 DbgProjMat
@@ -174,6 +199,39 @@ namespace googletiles
                 return viewMat;
             }
         }
+
+        static Vector3[] quadPts = {
+                // Top
+                new Vector3(-0.5f, +0.5f, -0.5f),
+                new Vector3(+0.5f, +0.5f, -0.5f),
+                new Vector3(+0.5f, +0.5f, +0.5f),
+                new Vector3(-0.5f, +0.5f, +0.5f),
+                // Bottom                                                             
+                new Vector3(-0.5f, -0.5f, +0.5f),
+                new Vector3(+0.5f, -0.5f, +0.5f),
+                new Vector3(+0.5f, -0.5f, -0.5f),
+                new Vector3(-0.5f, -0.5f, -0.5f),
+                // Left                                                               
+                new Vector3(-0.5f, +0.5f, -0.5f),
+                new Vector3(-0.5f, +0.5f, +0.5f),
+                new Vector3(-0.5f, -0.5f, +0.5f),
+                new Vector3(-0.5f, -0.5f, -0.5f),
+                // Right                                                              
+                new Vector3(+0.5f, +0.5f, +0.5f),
+                new Vector3(+0.5f, +0.5f, -0.5f),
+                new Vector3(+0.5f, -0.5f, -0.5f),
+                new Vector3(+0.5f, -0.5f, +0.5f),
+                // Back                                                               
+                new Vector3(+0.5f, +0.5f, -0.5f),
+                new Vector3(-0.5f, +0.5f, -0.5f),
+                new Vector3(-0.5f, -0.5f, -0.5f),
+                new Vector3(+0.5f, -0.5f, -0.5f),
+                // Front                                                              
+                new Vector3(-0.5f, +0.5f, +0.5f),
+                new Vector3(+0.5f, +0.5f, +0.5f),
+                new Vector3(+0.5f, -0.5f, +0.5f),
+                new Vector3(-0.5f, -0.5f, +0.5f),
+            };
 
     }
 }

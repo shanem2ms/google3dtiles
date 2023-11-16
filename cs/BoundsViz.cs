@@ -94,7 +94,7 @@ namespace googletiles
             if (tile == null)
                 return false;
 
-            if (!tile.IsExpanded)
+            if (!tile.IsInView || tile.LastVisitedFrame != frameIdx)
                 return false;
 
             int childDrawnCount = 0;
@@ -109,8 +109,8 @@ namespace googletiles
             float t;
             bool foundIntersection = tile.Bounds.Intersect(pos, dir, out t);
 
-            //if (tile.GlbFile != null)
-            {                
+            if (tile.mesh != null)
+            {
                 float screenSpan = tile.Bounds.GetScreenSpan(viewMat * projMat) * 0.1f;
 
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
@@ -130,6 +130,8 @@ namespace googletiles
                 cl.DrawIndexed(36, 1, 0, 0, 0);
                 return true;
             }
+
+            return false;
         }
 
 

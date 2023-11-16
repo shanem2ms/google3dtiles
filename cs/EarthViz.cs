@@ -21,11 +21,8 @@ namespace googletiles
         private Pipeline _pipeline;
         private ResourceSet _projViewSet;
 
-        // 8000000
-        Tile root;
-        public EarthViz(Tile rootTile)
+        public EarthViz()
         {
-            root = rootTile;
         }
 
         public void CreateResources(GraphicsDevice gd, Swapchain sc, ResourceFactory factory)
@@ -74,9 +71,11 @@ namespace googletiles
         }
 
 
-        void DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile)
+        void DrawTile(CommandList cl, ref Matrix4x4 viewMat, Tile tile, int frameIdx)
         {
             if (tile == null)
+                return;
+            if (!tile.IsInView || tile.LastVisitedFrame != frameIdx)
                 return;
 
             if (tile.mesh != null)
@@ -91,12 +90,12 @@ namespace googletiles
             if (tile.ChildTiles != null)
             {
                 foreach (Tile childTile in tile.ChildTiles)
-                { DrawTile(cl, ref viewMat, childTile); }
+                { DrawTile(cl, ref viewMat, childTile, frameIdx); }
             }
         }
 
 
-        public void Draw(CommandList cl, CameraView view)
+        public void Draw(CommandList cl, CameraView view, Tile root, int frameIdx)
         {
             Matrix4x4 viewMat = view.DebugMode ? view.DbgViewMat : view.ViewMat;
             Matrix4x4 projMat = view.DebugMode ? view.DbgProjMat : view.ProjMat;
@@ -104,7 +103,7 @@ namespace googletiles
             cl.ClearDepthStencil(1f);
             cl.SetPipeline(_pipeline);
             cl.UpdateBuffer(_projectionBuffer, 0, ref projMat);
-            DrawTile(cl, ref viewMat, root);
+            DrawTile(cl, ref viewMat, root, frameIdx);
         }
 
         private static VertexPositionTexture[] GetCubeVertices()

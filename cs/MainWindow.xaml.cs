@@ -49,7 +49,7 @@ namespace googletiles
             this.DataContext = this;
             InitializeComponent();
             cameraView = new CameraView();
-            //earthViz = new EarthViz(root);
+            earthViz = new EarthViz();
             boundsViz = new BoundsViz();
             frustumViz = new FrustumViz();
             veldridRenderer.cameraView = cameraView;
@@ -100,7 +100,7 @@ namespace googletiles
                 frustumVizInitialized = true;
             }
             if (earthViz != null)
-                earthViz.Draw(_cl, cameraView);
+                earthViz.Draw(_cl, cameraView, root, frameIdx);
             if (boundsViz != null)
                 boundsViz.Draw(_cl, cameraView, root, frameIdx);
             if (frustumViz != null)
