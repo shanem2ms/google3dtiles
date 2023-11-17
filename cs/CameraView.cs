@@ -13,8 +13,8 @@ namespace googletiles
     {
         Point mouseDownPt;
         bool mouseDown = false;
-        Vector3 camPos = new Vector3(1529900.5f, -4459775.5f, 4281051.5f);
-        Quaternion camRot = new Quaternion(0.2559748f, 0.1646896f, 0.11283519f, 0.94584507f);
+        Vector3 camPos = new Vector3(1531778.2f, -4465460f, 4275350.5f);
+        Quaternion camRot = new Quaternion(0.4555097f, 0.10653692f, -0.28930423f, 0.83514357f);
 
         Quaternion camRotMouseDown;
         static float scale = 8000000.0f;

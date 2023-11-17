@@ -56,6 +56,9 @@ namespace googletiles
         public int LastVisitedFrame { get; set; } = 0;
         public Vector3 MeshLoc => mesh?.translation ?? Vector3.Zero;
 
+        public static uint JSONCnt = 1;
+        public static uint GlbCnt = 0;
+
         public event PropertyChangedEventHandler? PropertyChanged;
         static int tileCount = 0;
         public int Idx => tileIdx;
@@ -148,8 +151,14 @@ namespace googletiles
 
         public async Task<bool> DownloadGlb(string sessionkey)
         {
-            Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);            
-            mesh = new GlbMesh(Path.GetFileName(GlbFile), stream, this.bounds);
+            Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
+            GlbCnt++;
+            mesh = new GlbMesh();
+            if (!mesh.Load(stream, this.bounds))
+            {
+                mesh = null;
+                return false;
+            } 
             return true;
         }
 
@@ -175,6 +184,7 @@ namespace googletiles
                     if (ChildTiles?.Length > 0)
                         Debugger.Break();
                     GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
+                    JSONCnt++;
                     Tile t = new Tile(tile.root, this);
                     tiles.Add(t);
                     ChildTiles = tiles.ToArray();
@@ -190,7 +200,7 @@ namespace googletiles
             {
                 float span = bounds.GetScreenSpan(cv.ViewProj);
                 bool isInside = bounds.IsInside(cv);
-                if (isInside || span > 5)
+                if (isInside || span > 1)
                 {
                     foreach (Tile tile in ChildTiles)
                     {
@@ -284,7 +294,8 @@ namespace googletiles
 
         [DllImport("libglb.dll")]
         static extern void FreeMesh(nint pmesh);
-        public GlbMesh(string name, Stream stream, Bounds b)
+
+        public bool Load(Stream stream, Bounds b)
         {
             var memoryStream = new MemoryStream();
             stream.CopyTo(memoryStream);
@@ -293,7 +304,8 @@ namespace googletiles
             nint nativeBuf = Marshal.AllocHGlobal(buf.Length);
             Marshal.Copy(buf, 0, nativeBuf, buf.Length);
             nint meshptr = LoadMesh(nativeBuf, (uint)buf.Length);
-
+            if (meshptr == IntPtr.Zero)
+                return false;
             Marshal.FreeHGlobal(nativeBuf);
             {
                 uint nfaces = FaceCount(meshptr);
@@ -338,6 +350,7 @@ namespace googletiles
                 ptList[i+2] = pt.Z;
             }
             CreateIBVB();
+            return true;
         }
         void CreateIBVB()
         {

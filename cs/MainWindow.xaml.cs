@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Numerics;
@@ -40,6 +41,8 @@ namespace googletiles
         bool frustumVizInitialized = false;
         Tile intersectedTile = null;
         bool saveVisibleGlb = false;
+        public uint GlbCnt => Tile.GlbCnt;
+        public uint JSONCnt => Tile.JSONCnt;
 
         public float TargetDist { get; set; }
         public int TargetTile { get; set; }
@@ -60,8 +63,8 @@ namespace googletiles
             this.DataContext = this;
             InitializeComponent();
             cameraView = new CameraView();
-            //earthViz = new EarthViz();
-            boundsViz = new BoundsViz();
+            earthViz = new EarthViz();
+            //boundsViz = new BoundsViz();
             frustumViz = new FrustumViz();
             veldridRenderer.cameraView = cameraView;
             GoogleTile.CreateFromUri("/v1/3dtiles/root.json", string.Empty).ContinueWith(t =>
@@ -90,6 +93,23 @@ namespace googletiles
             }
             float t;
             root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t, out Tile _intersectedTile);
+            /*
+            if (_intersectedTile != null && _intersectedTile.LastVisitedFrame < frameIdx)
+            {
+                Tile ptile = _intersectedTile;
+                while (ptile != null)
+                {
+                    if (ptile.LastVisitedFrame == frameIdx && !ptile.IsInView)
+                        break;
+                    ptile = ptile.Parent;
+                }
+                if (ptile != null)
+                {
+                    bool isInView = ptile.Bounds.IsInView(cameraView);
+                    Debug.WriteLine($"Bad tile {ptile.Idx}");
+                }
+                
+            }*/
             TargetDist = t;
             TargetTile = this.intersectedTile?.Idx ?? -1;
             this.intersectedTile = _intersectedTile;
@@ -126,6 +146,8 @@ namespace googletiles
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraRot)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetTile)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetDist)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GlbCnt)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(JSONCnt)));
         }
         void RefreshTiles()
         {

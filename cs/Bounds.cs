@@ -67,6 +67,7 @@ namespace googletiles
         public Vector3[] rot;
         public Matrix4x4 rotMat;
         public Matrix4x4 worldMat;
+        public Matrix4x4 axisWorldMat;
         public Vector3[] pts;
         public Quad[] quads;
         static Vector3[] cubePts;
@@ -111,6 +112,13 @@ namespace googletiles
 
             worldMat =
                     Matrix4x4.CreateScale(scale * 2) *
+                    rotMat *
+                    Matrix4x4.CreateTranslation(center);
+
+            float maxScale = MathF.Max(scale[0], MathF.Max(scale[1], scale[2]));
+            axisWorldMat =
+                    Matrix4x4.CreateTranslation(new Vector3(0.5f, 0, 0)) *
+                    Matrix4x4.CreateScale(new Vector3(maxScale * 0.5f, maxScale * 0.05f, maxScale * 0.05f)) *
                     rotMat *
                     Matrix4x4.CreateTranslation(center);
 
@@ -183,7 +191,7 @@ namespace googletiles
             if (IsGlobal)
                 return true;
             if (IsInside(cv)) return true;
-            if (Vector3.Dot(cv.LookDir, rot[2]) > 0)
+            if (Vector3.Dot(cv.Pos, center) < 0)
                 return false;
             int[] sides = new int[6];
             int[] fsides = new int[6];

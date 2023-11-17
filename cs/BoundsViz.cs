@@ -94,9 +94,6 @@ namespace googletiles
             if (tile == null)
                 return false;
 
-            if (!tile.IsInView || tile.LastVisitedFrame != frameIdx)
-                return false;
-
             int childDrawnCount = 0;
             if (tile.ChildTiles != null)
             {
@@ -122,6 +119,16 @@ namespace googletiles
                     color = new Vector4(0, 0, 1, 1);
                 else if (tile.LastVisitedFrame != frameIdx)
                     color = new Vector4(0.4f, 0.4f, 0.4f, 1);
+                cl.UpdateBuffer(_worldBuffer, 64, ref color);
+                cl.SetVertexBuffer(0, _vertexBuffer);
+                cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
+                cl.SetGraphicsResourceSet(0, _projViewSet);
+                cl.SetGraphicsResourceSet(1, _worldTextureSet);
+                cl.DrawIndexed(36, 1, 0, 0, 0);
+
+                color = new Vector4(1, 0, 0, 1);
+                cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
+                cl.UpdateBuffer(_worldBuffer, 0, ref tile.Bounds.axisWorldMat);
                 cl.UpdateBuffer(_worldBuffer, 64, ref color);
                 cl.SetVertexBuffer(0, _vertexBuffer);
                 cl.SetIndexBuffer(_indexBuffer, IndexFormat.UInt16);
