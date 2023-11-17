@@ -45,6 +45,7 @@ namespace googletiles
 
             public Node[] children { get; set; }
             public Content content { get; set; }
+            public float geometricError { get; set; }
 
             public string GetSession()
             {

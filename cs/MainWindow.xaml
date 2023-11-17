@@ -26,6 +26,7 @@
                     <TextBox Background="Transparent"
                      BorderThickness="0" Text="{Binding CameraRot, Mode=OneWay}"
                      IsReadOnly="True" TextWrapping="Wrap" Margin="15,0,5,0" />
+                    <TextBlock Text="{Binding EarthDist}" Margin="15,0,5,0"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Target"/>
@@ -77,6 +78,8 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="{Binding Center}" />
                 <TextBlock Grid.Row="1" Text="{Binding Scale}" />
@@ -85,6 +88,8 @@
                 <TextBlock Grid.Row="4" Text="{Binding IsInView}" Background="#FFEEEEDD"/>
                 <TextBlock Grid.Row="5" Text="{Binding LastVisitedFrame}" Background="#FFEEEEDD"/>
                 <TextBlock Grid.Row="6" Text="{Binding MeshLoc}" />
+                <TextBlock Grid.Row="7" Text="{Binding DistFromCam}" />
+                <TextBlock Grid.Row="8" Text="{Binding GeometricError}" />
             </Grid>
         </Grid>
     </Grid>

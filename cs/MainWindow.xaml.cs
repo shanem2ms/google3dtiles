@@ -48,6 +48,7 @@ namespace googletiles
         public int TargetTile { get; set; }
         public Vector3 CameraPos => cameraView?.Pos ?? Vector3.Zero;
         public Vector3 CameraLook => cameraView?.LookDir ?? Vector3.Zero;
+        public float EarthDist => cameraView?.Pos.Length() ?? 0;
         public string CameraRot
         {
             get
@@ -93,23 +94,22 @@ namespace googletiles
             }
             float t;
             root.FindIntersection(cameraView.Pos, cameraView.LookDir, out t, out Tile _intersectedTile);
-            /*
             if (_intersectedTile != null && _intersectedTile.LastVisitedFrame < frameIdx)
             {
                 Tile ptile = _intersectedTile;
                 while (ptile != null)
                 {
-                    if (ptile.LastVisitedFrame == frameIdx && !ptile.IsInView)
+                    if (ptile.LastVisitedFrame == frameIdx)
                         break;
                     ptile = ptile.Parent;
                 }
-                if (ptile != null)
+                if (ptile != null && !ptile.IsInView)
                 {
                     bool isInView = ptile.Bounds.IsInView(cameraView);
                     Debug.WriteLine($"Bad tile {ptile.Idx}");
                 }
                 
-            }*/
+            }
             TargetDist = t;
             TargetTile = this.intersectedTile?.Idx ?? -1;
             this.intersectedTile = _intersectedTile;
@@ -148,6 +148,7 @@ namespace googletiles
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetDist)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GlbCnt)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(JSONCnt)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EarthDist)));            
         }
         void RefreshTiles()
         {

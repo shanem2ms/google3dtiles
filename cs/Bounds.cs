@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Windows;
 
 namespace googletiles
 {
@@ -71,6 +74,7 @@ namespace googletiles
         public Vector3[] pts;
         public Quad[] quads;
         static Vector3[] cubePts;
+        Matrix4x4 invRotTrn;
 
         bool IsGlobal => scale == GlobalScale;
 
@@ -114,6 +118,11 @@ namespace googletiles
                     Matrix4x4.CreateScale(scale * 2) *
                     rotMat *
                     Matrix4x4.CreateTranslation(center);
+
+            invRotTrn =
+                    rotMat *
+                    Matrix4x4.CreateTranslation(center);
+            Matrix4x4.Invert(invRotTrn, out invRotTrn);
 
             float maxScale = MathF.Max(scale[0], MathF.Max(scale[1], scale[2]));
             axisWorldMat =
@@ -228,7 +237,21 @@ namespace googletiles
         public bool Equals(Bounds? other)
         {
             return center == other?.center &&
-                scale == other?.scale;
+            scale == other?.scale;
+        }
+
+        static float DistanceSqToAABB(Vector3 pt, Vector3 min, Vector3 max)
+        {
+            var dx = Math.Max(min.X - pt.X, Math.Max(0, pt.X - max.X));
+            var dy = Math.Max(min.Y - pt.Y, Math.Max(0, pt.Y - max.Y));
+            var dz = Math.Max(min.Z - pt.Z, Math.Max(0, pt.Z - max.Z));
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        public float DistanceSqFromPt(Vector3 pt)
+        {
+            Vector3 bpt = Vector3.Transform(pt, invRotTrn);
+            return DistanceSqToAABB(bpt, -scale, scale);
         }
     }
 }

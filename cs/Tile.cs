@@ -1,27 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Net.Http;
-using System.Security.Policy;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.Windows.Media.Animation;
-using System.IO;
-using Vortice.DXCore;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Numerics;
-using System.Diagnostics.CodeAnalysis;
-using static googletiles.GoogleTile;
-using System.Windows.Input;
 using System.Runtime.InteropServices;
-using System.Runtime;
+using System.Threading.Tasks;
 using Veldrid;
-using static System.Net.WebRequestMethods;
-using System.Security.Cryptography.X509Certificates;
-using Vortice.DXGI;
-using System.Transactions;
 
 namespace googletiles
 {
@@ -65,8 +50,11 @@ namespace googletiles
         int tileIdx = 0;
         int level;
         bool childrenDownloaded = false;
+        public float DistSqFromCam = 0;
+        public float DistFromCam => DistSqFromCam > 0 ? MathF.Sqrt(DistSqFromCam) : -1;
 
         public int Margin => level * 5;
+        public float GeometricError { get; }
 
         public void ToggleExpand()
         {
@@ -79,6 +67,7 @@ namespace googletiles
             bounds = new Bounds(node.boundingVolume);
             tileIdx = tileCount++;
             Transform = node.transform;
+            GeometricError = node.geometricError;
             if (node.content != null)
             {
                 if (node.content.uri.Contains(".json"))
@@ -196,11 +185,19 @@ namespace googletiles
                 System.IO.File.WriteAllBytes($"g{tileIdx}.glb", mesh.buf);
             }
 
+            bool isInside = bounds.IsInside(cv);
+            DistSqFromCam = isInside ? -1 : bounds.DistanceSqFromPt(cv.Pos);
+
             if (ChildTiles != null)
             {
-                float span = bounds.GetScreenSpan(cv.ViewProj);
-                bool isInside = bounds.IsInside(cv);
-                if (isInside || span > 1)
+                float errorDist = float.PositiveInfinity;
+                if (!isInside)
+                {
+                    float dsq = MathF.Sqrt(DistSqFromCam);
+                    errorDist = float.IsInfinity(GeometricError) ? float.PositiveInfinity : dsq / GeometricError;
+                    float span = bounds.GetScreenSpan(cv.ViewProj);
+                }
+                if (isInside || errorDist < 40)
                 {
                     foreach (Tile tile in ChildTiles)
                     {
