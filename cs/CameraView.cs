@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows;
+using Vortice.Direct3D11;
 
 namespace googletiles
 {
@@ -84,8 +85,14 @@ namespace googletiles
             }
         }
 
+        void SetDebugCameraValues()
+        {            
+            dbgCamPos = camPos - LookDir * LookAtDist;
+            dbgCamRot = camRot;
+        }
+
         float speed = 0.01f * scale;
-        float Speed => (dbgInput ? scale : LookAtDist) * 0.01f;
+        float Speed => (dbgInput ? DbgLookAtDist : LookAtDist) * 0.01f;
         public void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.W)
@@ -120,6 +127,7 @@ namespace googletiles
             }
             else if (e.Key == Key.G)
             {
+                SetDebugCameraValues();
                 DebugMode = !DebugMode;
             }
             else if (e.Key == Key.F)
@@ -145,6 +153,7 @@ namespace googletiles
         }
 
         public float LookAtDist { get; set; } = float.PositiveInfinity;
+        float DbgLookAtDist => LookAtDist * 10;
         public Vector3 LookDir => -Vector3.Transform(Vector3.UnitZ, camRot);
         public Vector3 Pos => camPos;
 
@@ -164,8 +173,8 @@ namespace googletiles
                 return Matrix4x4.CreatePerspectiveFieldOfView(
                     1.0f,
                     1.0f,
-                    0.05f * scale,
-                    10f * scale);
+                    0.05f * Math.Min(DbgLookAtDist, scale),
+                    10f * Math.Min(DbgLookAtDist, scale));
             }
         }
         public Matrix4x4 DbgViewMat
