@@ -24,7 +24,7 @@
                      BorderThickness="0" Text="{Binding CameraPos, Mode=OneWay}"
                      IsReadOnly="True" TextWrapping="Wrap" Margin="15,0,5,0" />
                     <TextBox Background="Transparent"
-                     BorderThickness="0" Text="{Binding CameraRot, Mode=OneWay}"
+                     BorderThickness="0" Text="{Binding GeoPos, Mode=OneWay}"
                      IsReadOnly="True" TextWrapping="Wrap" Margin="15,0,5,0" />
                     <TextBlock Text="{Binding EarthDist}" Margin="15,0,5,0"/>
                 </StackPanel>

@@ -48,6 +48,14 @@ namespace googletiles
         public int TargetTile { get; set; }
         public Vector3 CameraPos => cameraView?.Pos ?? Vector3.Zero;
         public Vector3 CameraLook => cameraView?.LookDir ?? Vector3.Zero;
+        public Vector3 GeoPos { get
+            {
+                float radius = CameraPos.Length();
+                float lat = MathF.Asin(-CameraPos.Z / radius);
+                float lon = MathF.Atan2(-CameraPos.Y, CameraPos.X);
+                return new Vector3(lat, lon, radius);
+            }
+        }
         public float EarthDist => cameraView?.Pos.Length() ?? 0;
         public string CameraRot
         {
@@ -148,7 +156,8 @@ namespace googletiles
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetDist)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GlbCnt)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(JSONCnt)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EarthDist)));            
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EarthDist)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GeoPos)));
         }
         void RefreshTiles()
         {
