@@ -12,6 +12,7 @@ namespace googletiles
 {
     public class CameraView
     {
+        EarthCamera earthCam = new EarthCamera();
         Point mouseDownPt;
         bool mouseDown = false;
         Vector3 camPos = new Vector3(1531617.9f, -4465250f, 4275288.5f);
@@ -38,6 +39,9 @@ namespace googletiles
         public Quad[] FrustumQuads => frustumQuads;
         public CameraView()
         {
+            earthCam.focus = new Vector3(-0.7359f, 1.2403f, 0);
+            earthCam.range = 20000f;
+            earthCam.elevation = MathF.PI / 4;
             Update();
         }
 
@@ -162,6 +166,15 @@ namespace googletiles
             CamPos += wsMotion;
             CamPos += adMotion;
             CamPos += eqMotion;
+            Vector3 viewDir, upDir;
+            Vector3 cpos;
+            earthCam.ToModel(out cpos, out viewDir, out upDir);
+            Vector3 xDir = Vector3.Cross(viewDir, upDir);
+            Matrix4x4 rotMat = new Matrix4x4(xDir.X, xDir.Y, xDir.Z, 0,
+                upDir.X, upDir.Y, upDir.Z, 0,
+                viewDir.X, viewDir.Y, viewDir.Z, 0,
+                0, 0, 0, 1);
+            //camRot = Quaternion.CreateFromRotationMatrix(rotMat);
             this.viewProj = this.ViewMat * this.ProjMat;
             BuildFrustumQuads();
         }
