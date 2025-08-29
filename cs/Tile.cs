@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SharpGen.Runtime;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -6,6 +7,7 @@ using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Transactions;
 using Veldrid;
 
 namespace googletiles
@@ -142,12 +144,11 @@ namespace googletiles
         {
             Stream stream = await GoogleTile.GetContentStream(sessionkey, GlbFile);
             GlbCnt++;
-            mesh = new GlbMesh();
-            if (!mesh.Load(stream, this.bounds))
-            {
-                mesh = null;
+            GlbMesh mmesh = new GlbMesh();
+            if (!mmesh.Load(stream, this.bounds))
                 return false;
-            } 
+
+            this.mesh = mmesh;
             return true;
         }
 
@@ -263,6 +264,7 @@ namespace googletiles
         
 
         public int triangleCnt => triangleList.Length / 3;
+        public Matrix4x4 mat;
         public Vector3 translation;
 
         [DllImport("libglb.dll")]
@@ -315,13 +317,18 @@ namespace googletiles
             {
                 uint npoints = PtCount(meshptr);
                 nint ptBuf = Marshal.AllocHGlobal((int)npoints * 5 * sizeof(float));
-                nint ptranslate = Marshal.AllocHGlobal(3 * sizeof(float));
-                bool success = GetPoints(meshptr, ptBuf, npoints * 5 * sizeof(float), ptranslate);
+                nint pmatrix = Marshal.AllocHGlobal(16 * sizeof(float));
+                bool success = GetPoints(meshptr, ptBuf, npoints * 5 * sizeof(float), pmatrix);
                 ptList = new float[npoints * 5];
                 Marshal.Copy(ptBuf, ptList, 0, (int)npoints * 5);
-                translation = Marshal.PtrToStructure<Vector3>(ptranslate);
+                mat = Marshal.PtrToStructure<Matrix4x4>(pmatrix);
+                translation = Vector3.Transform(Vector3.Zero, mat);
+
+                mat.M41 = 0;
+                mat.M42 = 0;
+                mat.M43 = 0;
                 Marshal.FreeHGlobal(ptBuf);
-                Marshal.FreeHGlobal(ptranslate);
+                Marshal.FreeHGlobal(pmatrix);
             }
             {
                 imgWidth = GetTextureWidth(meshptr);
@@ -330,6 +337,7 @@ namespace googletiles
                 bool success = GetTexture(meshptr, imageBuf, imgWidth * imgHeight * 4);
             }
             FreeMesh(meshptr);
+            
             Matrix4x4 zUp = new Matrix4x4(
                 1.0f, 0.0f, 0.0f, 0.0f,
                 0.0f, 0.0f, 1.0f, 0.0f,
@@ -341,7 +349,7 @@ namespace googletiles
             for (int i = 0; i < ptList.Length; i += 5)
             {
                 Vector3 pt = new Vector3(ptList[i], ptList[i + 1], ptList[i + 2]);
-                pt = Vector3.Transform(pt, zUp);
+                //pt = Vector3.Transform(pt, zUp);
                 ptList[i] = pt.X;
                 ptList[i+1] = pt.Y;
                 ptList[i+2] = pt.Z;

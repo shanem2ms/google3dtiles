@@ -101,13 +101,12 @@ extern "C" _declspec(dllexport) uint32_t PtCount(GltfModel *pmodel)
 }
 
 extern "C" _declspec(dllexport) bool GetPoints(GltfModel *pmodel, void* ptbuf, uint32_t bufSize, 
-    void *ptranslate)
+    float *pmatrix)
 {
-    float *t = (float *)ptranslate;
-    t[0] = pmodel->model.nodes[0].translation[0];
-    t[1] = pmodel->model.nodes[0].translation[1];
-    t[2] = pmodel->model.nodes[0].translation[2];
-    
+    for (int i = 0; i < 16; ++i)
+    {
+        pmatrix[i] = pmodel->model.nodes[0].matrix[i];
+    }
 
     draco::Mesh &mesh = pmodel->mesh;
     const draco::PointAttribute* posAttribute = mesh.GetNamedAttribute(draco::GeometryAttribute::Type::POSITION);
