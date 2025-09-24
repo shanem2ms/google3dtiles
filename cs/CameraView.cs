@@ -179,6 +179,13 @@ namespace googletiles
             BuildFrustumQuads();
         }
 
+        public void SetPositionAndRotation(Vector3 position, Quaternion rotation)
+        {
+            camPos = position;
+            camRot = rotation;
+            Update(); // Ensure matrices are recalculated
+        }
+
         public Matrix4x4 DbgProjMat
         {
             get

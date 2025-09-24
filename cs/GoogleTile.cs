@@ -77,10 +77,33 @@ namespace googletiles
         static string key = "key=AIzaSyB-uBxCvbThmf-lSIqbdMvE1wPJ8fVNbjs";
         public static async Task<Stream> GetContentStream(string sessionkey, string url)
         {
+            // Check disk cache first
+            Stream cachedStream = await DiskCache.GetCachedStreamAsync(url, sessionkey);
+            if (cachedStream != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"Using cached content for: {url}");
+                return cachedStream;
+            }
+
+            // Download from API
             HttpClient httpClient = new HttpClient();
             string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
             var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
-            return await response.Content.ReadAsStreamAsync();
+            Stream responseStream = await response.Content.ReadAsStreamAsync();
+            
+            // Create a memory stream to cache the content
+            var memoryStream = new MemoryStream();
+            await responseStream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+            
+            // Cache the content
+            await DiskCache.CacheStreamAsync(url, memoryStream, sessionkey);
+            
+            // Reset position for return
+            memoryStream.Position = 0;
+            System.Diagnostics.Debug.WriteLine($"Downloaded and cached content for: {url}");
+            
+            return memoryStream;
         }
 
         public string GetSession()
@@ -98,11 +121,30 @@ namespace googletiles
                 jsonidx = nextIdx++;
                 jsonIdx.Add(url, jsonidx);
             }
-            HttpClient httpClient = new HttpClient();
-            string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
-            var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
-            string responseJson = await response.Content.ReadAsStringAsync();
-            //File.WriteAllText(Path.GetFileName(url), responseJson);
+
+            // Check disk cache first
+            string cachedJson = await DiskCache.GetCachedStringAsync(url, sessionkey);
+            string responseJson;
+            
+            if (cachedJson != null)
+            {
+                // Use cached version
+                responseJson = cachedJson;
+                System.Diagnostics.Debug.WriteLine($"Using cached JSON for: {url}");
+            }
+            else
+            {
+                // Download from API and cache
+                HttpClient httpClient = new HttpClient();
+                string sessionqr = sessionkey.Length > 0 ? '&' + "session=" + sessionkey : "";
+                var response = await httpClient.GetAsync(site + url + '?' + key + sessionqr);
+                responseJson = await response.Content.ReadAsStringAsync();
+                
+                // Cache the response
+                await DiskCache.CacheStringAsync(url, responseJson, sessionkey);
+                System.Diagnostics.Debug.WriteLine($"Downloaded and cached JSON for: {url}");
+            }
+            
             GoogleTile tile = JsonSerializer.Deserialize<GoogleTile>(responseJson);
             return tile;
         }

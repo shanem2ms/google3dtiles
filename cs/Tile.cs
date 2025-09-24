@@ -41,6 +41,8 @@ namespace googletiles
 
         public bool IsInView { get; set; } = false;
         public int LastVisitedFrame { get; set; } = 0;
+        public bool IsDownloading { get; set; } = false;
+        public int LastVisibleFrame { get; set; } = 0;
         public Vector3 MeshLoc => mesh?.translation ?? Vector3.Zero;
 
         public static uint JSONCnt = 1;
@@ -152,6 +154,30 @@ namespace googletiles
             return true;
         }
 
+        public float GetGeometricError(CameraView cv)
+        {
+            if (Bounds.IsInside(cv))
+                return float.PositiveInfinity; // Always refine if camera is inside
+            
+            float distSq = Bounds.DistanceSqFromPt(cv.Pos);
+            if (distSq <= 0)
+                return float.PositiveInfinity;
+            
+            float dist = MathF.Sqrt(distSq);
+            if (GeometricError == 0)
+                return float.PositiveInfinity; // Leaf node that can't be refined
+            
+            return dist / GeometricError;
+        }
+
+        public string GetUri()
+        {
+            if (Parent == null) return "root";
+            if (!string.IsNullOrEmpty(ChildJson)) return ChildJson;
+            if (!string.IsNullOrEmpty(GlbFile)) return GlbFile;
+            return $"tile_{tileIdx}";
+        }
+
         public async Task<bool> DownloadChildren(string sessionkey, CameraView cv, int frameIdx, bool saveGlb)
         {
             LastVisitedFrame = frameIdx;
@@ -173,7 +199,11 @@ namespace googletiles
                 {
                     if (ChildTiles?.Length > 0)
                         Debugger.Break();
+                    
+                    IsDownloading = true; // Set flag before download
                     GoogleTile tile = await GoogleTile.CreateFromUri(ChildJson, sessionkey);
+                    IsDownloading = false; // Clear flag after download
+                    
                     JSONCnt++;
                     Tile t = new Tile(tile.root, this);
                     tiles.Add(t);
