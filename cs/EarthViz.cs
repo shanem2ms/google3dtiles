@@ -21,6 +21,7 @@ namespace googletiles
         private DeviceBuffer _viewBuffer;
         private Pipeline _pipeline;
         private ResourceSet _projViewSet;
+        public List<Tile> DrawnTiles { get; } = new List<Tile>();
 
         public EarthViz()
         {
@@ -74,37 +75,60 @@ namespace googletiles
 
         bool DrawTile(CommandList cl, ref Matrix4x4 viewMat, Vector3 pos, Tile tile, int frameIdx)
         {
-            if (tile == null)
-                return false;
-            if (!tile.IsInView || tile.LastVisitedFrame != frameIdx)
+            if (tile == null || !tile.IsInView || tile.LastVisitedFrame != frameIdx)
                 return false;
 
-            bool subtileDrawn = false;
+            int visibleChildCount = 0;
+            int drawnChildCount = 0;
+
             if (tile.ChildTiles != null)
             {
-                foreach (Tile childTile in tile.ChildTiles)
-                { subtileDrawn |= DrawTile(cl, ref viewMat, pos, childTile, frameIdx); }
+                // Count visible children first
+                foreach (var child in tile.ChildTiles)
+                {
+                    if (child.IsInView && child.LastVisitedFrame == frameIdx)
+                    {
+                        visibleChildCount++;
+                    }
+                }
+
+                // Recursively draw children and count how many were actually drawn
+                foreach (var child in tile.ChildTiles)
+                {
+                    if (DrawTile(cl, ref viewMat, pos, child, frameIdx))
+                    {
+                        drawnChildCount++;
+                    }
+                }
             }
-            if (tile.mesh != null && !subtileDrawn)
-            {               
+
+            // We should draw the parent UNLESS all of its visible children were successfully drawn.
+            bool allVisibleChildrenWereDrawn = (visibleChildCount > 0 && visibleChildCount == drawnChildCount);
+
+            if (tile.mesh != null && !allVisibleChildrenWereDrawn)
+            {
+                // Draw the parent tile
                 cl.UpdateBuffer(_viewBuffer, 0, ref viewMat);
                 cl.SetVertexBuffer(0, tile.mesh._vertexBuffer);
                 cl.SetIndexBuffer(tile.mesh._indexBuffer, IndexFormat.UInt32);
                 cl.SetGraphicsResourceSet(0, _projViewSet);
                 Matrix4x4 wm = Matrix4x4.CreateTranslation(tile.mesh.translation - pos);
                 VeldridComponent.Graphics.UpdateBuffer(tile.mesh._worldBuffer, 0, ref wm);
-
                 cl.SetGraphicsResourceSet(1, tile.mesh._worldTextureSet);
                 cl.DrawIndexed((uint)tile.mesh.triangleCnt * 3, 1, 0, 0, 0);
-                return true;
-            }        
+                DrawnTiles.Add(tile);
+                return true; // This tile itself was drawn.
+            }
 
-            return subtileDrawn;
+            // If we get here, it means either the parent was not drawn (because children were),
+            // or the parent had no mesh. We return true if any children were drawn.
+            return drawnChildCount > 0;
         }
 
 
         public void Draw(CommandList cl, CameraView view, Tile root, int frameIdx)
         {
+            DrawnTiles.Clear();
             Matrix4x4 viewMat = view.DebugMode ? view.DbgViewMat : view.ViewMatNoTranslate;
             Matrix4x4 projMat = view.DebugMode ? view.DbgProjMat : view.ProjMat;
             cl.ClearColorTarget(0, RgbaFloat.Black);

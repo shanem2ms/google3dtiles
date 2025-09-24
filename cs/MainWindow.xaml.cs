@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Numerics;
@@ -149,6 +150,12 @@ namespace googletiles
             if (frustumViz != null)
                 frustumViz.Draw(_cl, cameraView);
 
+            if (cameraView.PrintRequested)
+            {
+                PrintRenderedTiles();
+                cameraView.PrintRequested = false;
+            }
+
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraLook)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraPos)));
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CameraRot)));
@@ -165,6 +172,19 @@ namespace googletiles
             //root.CollapseSameTiles();
             root.GetExpandedList(Tiles);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Tiles)));
+        }
+
+        void PrintRenderedTiles()
+        {
+            string filePath = "rendered_tiles.txt";
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine("Drawn Tiles:");
+                foreach (var tile in earthViz.DrawnTiles)
+                {
+                    writer.WriteLine($"  Tile ID: {tile.Idx}, Center: {tile.Center}, Scale: {tile.Scale}");
+                }
+            }
         }
         private void Expand_Click(object sender, RoutedEventArgs e)
         {

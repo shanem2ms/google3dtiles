@@ -217,17 +217,13 @@ namespace googletiles
             }
 
             bool isInside = bounds.IsInside(cv);
-            DistSqFromCam = isInside ? -1 : bounds.DistanceSqFromPt(cv.Pos);
+            DistSqFromCam = Vector3.DistanceSquared(Center, cv.Pos);
 
             if (ChildTiles != null)
             {
-                float errorDist = float.PositiveInfinity;
-                if (!isInside)
-                {
-                    float dsq = MathF.Sqrt(DistSqFromCam);
-                    errorDist = float.IsInfinity(GeometricError) ? float.PositiveInfinity : dsq / GeometricError;
-                    float span = bounds.GetScreenSpan(cv.ViewProj);
-                }
+                float dist = MathF.Sqrt(DistSqFromCam);
+                float errorDist = float.IsInfinity(GeometricError) ? float.PositiveInfinity : dist / GeometricError;
+                
                 if (isInside || errorDist < 40)
                 {
                     foreach (Tile tile in ChildTiles)

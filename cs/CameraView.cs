@@ -27,6 +27,7 @@ namespace googletiles
         Vector3 dbgCamPos = new Vector3(0, 0, scale);
         public bool DebugMode = false;
         bool dbgInput = false;
+        public bool PrintRequested { get; set; } = false;
         Matrix4x4 viewProj = Matrix4x4.Identity;
         public Matrix4x4 ViewProj => viewProj;
 
@@ -137,6 +138,10 @@ namespace googletiles
             else if (e.Key == Key.F)
             {
                 dbgInput = !dbgInput;
+            }
+            else if (e.Key == Key.P)
+            {
+                PrintRequested = true;
             }
         }
         public void OnKeyUp(KeyEventArgs e)
